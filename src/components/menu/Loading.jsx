@@ -1,5 +1,9 @@
 function Loading() {
-    return <p>Loading menu...</p>;
+    return (
+      <main>
+        <p>Loading menu...</p>
+      </main>
+    );
   }
   
   export default Loading;

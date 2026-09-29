@@ -1,5 +1,9 @@
 function ErrorMessage({ message }) {
-    return <p>{message}</p>;
+    return (
+      <main>
+        <p>{message}</p>
+      </main>
+    );
   }
   
   export default ErrorMessage;
