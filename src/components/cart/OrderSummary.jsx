@@ -1,0 +1,19 @@
+import { Link } from "react-router-dom";
+
+function OrderSummary({ total }) {
+  return (
+    <div className="order-summary">
+      <h2>Order Summary</h2>
+
+      <p>
+        Total: <strong>KSh {total}</strong>
+      </p>
+
+      <Link to="/checkout">
+        <button>Proceed to Checkout</button>
+      </Link>
+    </div>
+  );
+}
+
+export default OrderSummary;
