@@ -5,13 +5,19 @@ function QuantityControl({ id, quantity }) {
 
   return (
     <div className="quantity-control">
-      <button onClick={() => decreaseQuantity(id)}>
+      <button
+        className="quantity-button"
+        onClick={() => decreaseQuantity(id)}
+      >
         -
       </button>
 
-      <span>{quantity}</span>
+      <span className="quantity-number">{quantity}</span>
 
-      <button onClick={() => increaseQuantity(id)}>
+      <button
+        className="quantity-button"
+        onClick={() => increaseQuantity(id)}
+      >
         +
       </button>
     </div>

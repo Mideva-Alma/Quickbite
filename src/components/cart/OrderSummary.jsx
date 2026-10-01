@@ -5,12 +5,12 @@ function OrderSummary({ total }) {
     <div className="order-summary">
       <h2>Order Summary</h2>
 
-      <p>
+      <p className="order-total">
         Total: <strong>KSh {total}</strong>
       </p>
 
-      <Link to="/checkout">
-        <button>Proceed to Checkout</button>
+      <Link className="checkout-link" to="/checkout">
+        Proceed to Checkout
       </Link>
     </div>
   );
