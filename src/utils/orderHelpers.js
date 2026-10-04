@@ -26,6 +26,38 @@ export function getOrders() {
 export function getCartTotal(cart) {
   return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 }
+function saveCart(cart) {
+  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  return cart;
+}
+export function addToCart(meal) {
+  const cart = getCart();
+  const existing = cart.find((item) => item.id === meal.id);
+  if (existing) {
+    return saveCart(
+      cart.map((item) =>
+        item.id === meal.id ? { ...item, quantity: item.quantity + 1 } : item
+      )
+    );
+  }
+  return saveCart([
+    ...cart,
+    { id: meal.id, name: meal.name, price: meal.price, quantity: 1 },
+  ]);
+}
+export function removeFromCart(id) {
+  return saveCart(getCart().filter((item) => item.id !== id));
+}
+export function updateCartQuantity(id, quantity) {
+  if (quantity < 1) return removeFromCart(id);
+
+  return saveCart(
+    getCart().map((item) => (item.id === id ? { ...item, quantity } : item))
+  );
+}
+export function saveCustomer(customer) {
+  localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customer));
+}
 
 export function generateOrderId() {
   return `ORD-${1001 + getOrders().length}`;
@@ -53,4 +85,20 @@ export function placeOrder({ customer, cart, paymentMethod }) {
   localStorage.setItem(ORDERS_KEY, JSON.stringify([...getOrders(), order]));
   localStorage.removeItem(CART_KEY);
   return order;
+}
+
+export const ORDER_STATUSES = ["Pending", "Preparing", "Ready", "Served"];
+
+export function updateOrderStatus(id, orderStatus) {
+  const orders = getOrders();
+
+  if (!orders.some((order) => order.id === id)) {
+    throw new Error("Order not found");
+  }
+
+  const updated = orders.map((order) =>
+    order.id === id ? { ...order, orderStatus } : order
+  );
+
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(updated));
 }

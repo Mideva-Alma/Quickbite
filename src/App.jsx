@@ -9,6 +9,8 @@ import Checkout from "./pages/Checkout";
 import Payment from "./pages/Payment";
 
 import OrderConfirmationPage from "./pages/OrderConfirmation";
+import Waiter from "./pages/WaiterDashboard";
+import Cart from "./pages/Cart";
 
 import Cart from "./pages/Cart";
 

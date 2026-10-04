@@ -11,6 +11,7 @@ const { addToCart } = useCart();
   const [meal, setMeal] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [added, setAdded] = useState(false);
 
   useEffect(() => {
     const fetchMeal = async () => {
@@ -27,6 +28,13 @@ const { addToCart } = useCart();
     fetchMeal();
   }, [id]);
 
+  const handleAddToCart = () => {
+    console.log("clicked", meal);
+    const cart = addToCart(meal);
+    console.log("cart now", cart);
+    setAdded(true);
+  };
+
   if (loading) {
     return <Loading />;
   }
@@ -37,28 +45,26 @@ const { addToCart } = useCart();
 
   return (
     <main className="food-details">
-
-  
       <img src={meal.image} alt={meal.name} />
-  
+
       <h1>{meal.name}</h1>
-  
+
       <p>Category: {meal.category}</p>
-  
+
       <p>KSh {meal.price}</p>
-  
+
       <h2>About this meal</h2>
-  
+
       <p>{meal.description}</p>
-  
+
       <h2>Ingredients</h2>
-  
+
       <ul>
         {meal.ingredients.map((ingredient) => (
           <li key={ingredient}>{ingredient}</li>
         ))}
       </ul>
-      <button><Link to="/menu" className="back-button">
+      <Link to="/menu" className="back-button">
         Back to Menu
       </Link>
       </button>
