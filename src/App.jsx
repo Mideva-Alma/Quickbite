@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Menu from "./pages/Menu";
 
 import FoodDetails from "./pages/FoodDetails";
+import CustomerDetails from "./pages/CustomerDetails";
 
 import Checkout from "./pages/Checkout";
 
