@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getMeals } from "../services/api";
 import FoodCard from "../components/menu/FoodCard";
 import Loading from "../components/menu/Loading";
@@ -55,6 +56,10 @@ function Menu() {
   return (
     <main>
       <h1>QUICKBITE Menu</h1>
+
+      <Link to="/cart">
+        View Cart
+      </Link>
 
       <SearchBar
         searchTerm={searchTerm}

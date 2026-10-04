@@ -3,11 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import { getMealById } from "../services/api";
 import Loading from "../components/menu/Loading";
 import ErrorMessage from "../components/menu/ErrorMessage";
-import { addToCart } from "../utils/orderHelpers";
+import { useCart } from "../context/CartContext";
 
 function FoodDetails() {
   const { id } = useParams();
-
+const { addToCart } = useCart();
   const [meal, setMeal] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -67,12 +67,10 @@ function FoodDetails() {
       <Link to="/menu" className="back-button">
         Back to Menu
       </Link>
-      <button onClick={handleAddToCart}>Add to Cart</button>
-      {added && (
-        <p>
-          Added to cart! <Link to="/cart">View cart</Link>
-        </p>
-      )}
+      </button>
+     <button onClick={() => addToCart(meal)}>
+      Add to Cart
+     </button>
     </main>
   );
 }
