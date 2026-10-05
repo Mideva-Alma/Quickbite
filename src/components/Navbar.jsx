@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 function Navbar() {
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-red-500 p-5">
+    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 shrink-0 flex-col bg-red-500 p-5">
       
       {/* Logo Section */}
       <div className="mb-8 flex h-32 items-center justify-center rounded-xl bg-white">
