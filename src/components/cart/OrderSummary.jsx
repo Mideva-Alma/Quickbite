@@ -9,7 +9,7 @@ function OrderSummary({ total }) {
         Total: <strong>KSh {total}</strong>
       </p>
 
-      <Link className="checkout-link" to="/checkout">
+      <Link className="checkout-link" to="/customer-details">
         Proceed to Checkout
       </Link>
     </div>

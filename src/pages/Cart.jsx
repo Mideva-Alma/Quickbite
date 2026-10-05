@@ -5,7 +5,7 @@ import { useCart } from "../context/CartContext";
 import CartItem from "../components/cart/CartItem";
 
 import OrderSummary from "../components/cart/OrderSummary";
-import "./Cart.css";
+import "../components/cart/Cart.css";
 
 function Cart() {
   const { cart, clearCart, cartTotal } = useCart();

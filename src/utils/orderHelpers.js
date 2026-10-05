@@ -84,6 +84,7 @@ export function placeOrder({ customer, cart, paymentMethod }) {
 
   localStorage.setItem(ORDERS_KEY, JSON.stringify([...getOrders(), order]));
   localStorage.removeItem(CART_KEY);
+  localStorage.removeItem(CUSTOMER_KEY);
   return order;
 }
 

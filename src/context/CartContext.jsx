@@ -3,13 +3,13 @@ const CartContext = createContext();
 
 export function CartProvider({ children }) {
  const [cart, setCart] = useState(() => {
-  const savedCart = localStorage.getItem("quickbite-cart");
+  const savedCart = localStorage.getItem("quickbite_cart");
 
   return savedCart ? JSON.parse(savedCart) : [];
 });
 
 useEffect(() => {
-  localStorage.setItem("quickbite-cart", JSON.stringify(cart));
+  localStorage.setItem("quickbite_cart", JSON.stringify(cart));
 }, [cart]);
 
   const addToCart = (food) => {

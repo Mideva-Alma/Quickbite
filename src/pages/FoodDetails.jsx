@@ -67,7 +67,6 @@ const { addToCart } = useCart();
       <Link to="/menu" className="back-button">
         Back to Menu
       </Link>
-      </button>
      <button onClick={() => addToCart(meal)}>
       Add to Cart
      </button>

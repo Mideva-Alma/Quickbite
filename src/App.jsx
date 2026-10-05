@@ -13,7 +13,6 @@ import OrderConfirmationPage from "./pages/OrderConfirmation";
 import Waiter from "./pages/WaiterDashboard";
 import Cart from "./pages/Cart";
 
-import Cart from "./pages/Cart";
 
 function App() {
   return (
@@ -33,14 +32,15 @@ function App() {
 
         <Route path="/cart" element={<Cart />} />
 
-        <Route path="/review" element={<Checkout />} />
+        <Route path="/customer-details" element={<CustomerDetails />} />
+
+        <Route path="/checkout" element={<Checkout />} />
 
         <Route path="/payment" element={<Payment />} />
 
-        <Route
-          path="/order-confirmation"
-          element={<OrderConfirmationPage />}
-        />
+        <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
+
+        <Route path="/waiter" element={<Waiter />} />
       </Routes>
     </BrowserRouter>
   );
