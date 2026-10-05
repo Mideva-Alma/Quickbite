@@ -21,7 +21,7 @@ function App() {
     <BrowserRouter>
     <>
       <Navbar />
-      <main className="ml-64 min-h-screen min-w-0 overflow-x-hidden">
+      <main className="ml-0 min-h-screen min-w-0 overflow-x-hidden md:ml-64">
         <Routes>
           <Route
             path="/"
