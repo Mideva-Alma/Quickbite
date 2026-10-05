@@ -156,6 +156,33 @@ PokéAPI provides Pokémon data and images for the Pokémon Guess game.
 | `/manager` | Manager Dashboard | View restaurant statistics |
 
 ---
+## Deployment
+
+The QUICKBITE frontend is deployed on Vercel.
+
+**Live Application:** [QUICKBITE Live Demo](https://quickbite-dusky-tau.vercel.app/menu)
+
+## APIs Used
+
+### TheMealDB
+
+Used to retrieve restaurant meal data, including meal names, images, categories, and descriptions.
+
+**API:** [TheMealDB](https://www.themealdb.com/documentation)
+
+### Open Trivia DB
+
+Used for the trivia games in the Games section.
+
+**API:** [Open Trivia DB](https://opentdb.com/api_config.php)
+
+### PokéAPI
+
+Used for the Pokémon guessing game and Pokémon artwork.
+
+**API:** [PokéAPI](https://pokeapi.co/docs/v2)
+
+---
 
 ## Customer Ordering Flow
 
