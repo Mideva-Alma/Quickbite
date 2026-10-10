@@ -1,7 +1,7 @@
 """Add menu items table
 
 Revision ID: ee63b00d41e7
-Revises: 
+Revises:
 Create Date: 2026-10-09 19:04:25.682203
 
 """
