@@ -4,6 +4,7 @@ from flask_cors import CORS
 from .config import Config
 from .extensions import db, migrate
 from .routes.menu_items import menu_items_bp
+from .routes.waiter import waiter_bp
 
 
 def create_app():
@@ -16,5 +17,6 @@ def create_app():
     CORS(app)
 
     app.register_blueprint(menu_items_bp)
+    app.register_blueprint(waiter_bp)
 
     return app
