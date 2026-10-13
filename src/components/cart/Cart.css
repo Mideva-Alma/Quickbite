@@ -1,0 +1,170 @@
+.cart-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.cart-page h1 {
+  font-size: 32px;
+  margin-bottom: 30px;
+}
+
+.cart-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
+.cart-items {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cart-actions {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.clear-cart {
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.continue-shopping {
+  text-decoration: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 15px;
+}
+
+.empty-cart {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.empty-cart p {
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+
+/* Mobile screens */
+@media (max-width: 768px) {
+  .cart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cart-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .clear-cart,
+  .continue-shopping {
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+.cart-item {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: white;
+}
+
+.cart-item-image {
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.cart-item-details {
+  flex: 1;
+}
+
+.cart-item-details h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+
+.cart-item-price {
+  margin: 5px 0 15px;
+}
+
+.cart-item-total {
+  font-weight: bold;
+  margin-top: 15px;
+}
+
+.remove-item {
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.quantity-button {
+  width: 35px;
+  height: 35px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.quantity-number {
+  min-width: 25px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 17px;
+}
+.order-summary {
+  padding: 25px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: white;
+  position: sticky;
+  top: 20px;
+}
+
+.order-summary h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.order-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px;
+  margin-bottom: 25px;
+}
+
+.order-total strong {
+  font-size: 20px;
+}
+
+.checkout-link {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  padding: 13px 20px;
+  border-radius: 6px;
+  font-weight: bold;
+}
