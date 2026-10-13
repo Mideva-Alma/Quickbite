@@ -1,9 +1,13 @@
+
 from flask import Flask
 from flask_cors import CORS
 
+from . import models
 from .config import Config
 from .extensions import db, migrate
 from .routes.menu_items import menu_items_bp
+from .routes.orders import orders_bp
+from .routes.payments import payments_bp
 from .routes.waiter import waiter_bp
 
 
@@ -17,6 +21,8 @@ def create_app():
     CORS(app)
 
     app.register_blueprint(menu_items_bp)
+    app.register_blueprint(orders_bp)
+    app.register_blueprint(payments_bp)
     app.register_blueprint(waiter_bp)
 
     return app
