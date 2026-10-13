@@ -10,34 +10,46 @@ function Navbar() {
 
   return (
     <>
-      {/* Mobile menu button */}
+      {/* Menu button — visible on desktop and mobile */}
       <button
-        onClick={() => setIsOpen(true)}
-        className="fixed left-4 top-4 z-50 flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-lg bg-red-500 shadow-md md:hidden"
-        aria-label="Open menu"
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed left-4 top-4 z-[60] flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-lg bg-red-500 shadow-md"
+        aria-label={isOpen ? "Close menu" : "Open menu"}
+        aria-expanded={isOpen}
       >
-        <span className="block h-0.5 w-5 bg-white"></span>
-        <span className="block h-0.5 w-5 bg-white"></span>
-        <span className="block h-0.5 w-5 bg-white"></span>
+        <span
+          className={`block h-0.5 w-5 bg-white transition-transform ${
+            isOpen ? "translate-y-2 rotate-45" : ""
+          }`}
+        />
+        <span
+          className={`block h-0.5 w-5 bg-white transition-opacity ${
+            isOpen ? "opacity-0" : ""
+          }`}
+        />
+        <span
+          className={`block h-0.5 w-5 bg-white transition-transform ${
+            isOpen ? "-translate-y-2 -rotate-45" : ""
+          }`}
+        />
       </button>
 
-      {/* Mobile overlay */}
+      {/* Overlay */}
       {isOpen && (
         <div
           onClick={closeMenu}
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          className="fixed inset-0 z-40 bg-black/40"
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — hidden until the menu button is clicked */}
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen w-64 shrink-0 flex-col bg-red-500 p-5 transition-transform duration-300 ${
+        className={`fixed left-0 top-0 z-50 flex h-screen w-64 flex-col bg-red-500 p-5 shadow-xl transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0`}
+        }`}
       >
         {/* Logo */}
-        <div className="mb-8 flex h-32 items-center justify-center rounded-xl bg-white">
-          {/* Add your logo image here */}
+        <div className="mb-8 flex h-32 shrink-0 items-center justify-center rounded-xl bg-white">
           <span className="text-2xl font-bold text-red-500">
             QUICKBITE
           </span>
