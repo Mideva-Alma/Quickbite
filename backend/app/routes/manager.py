@@ -1,4 +1,3 @@
-
 from collections import defaultdict
 from datetime import date, datetime
 
@@ -6,12 +5,14 @@ from flask import Blueprint, jsonify, request
 
 from ..models.order import Order
 
+
 manager_bp = Blueprint("manager", __name__, url_prefix="/api/manager")
 
 ORDER_STATUSES = ["PENDING", "PREPARING", "READY", "SERVED"]
 
 
 def get_value(obj, *names, default=None):
+    """Return the first available, non-None attribute."""
     for name in names:
         value = getattr(obj, name, None)
         if value is not None:
@@ -20,16 +21,27 @@ def get_value(obj, *names, default=None):
 
 
 def serialize_order(order):
+    """Convert a database order into JSON-friendly data."""
     items = []
 
     for line in (getattr(order, "items", None) or []):
+        menu_item = getattr(line, "menu_item", None)
+
+        item_name = (
+            get_value(line, "item_name", "name")
+            or get_value(menu_item, "name")
+            or "Unknown item"
+        )
+
+        item_price = get_value(line, "unit_price", "price")
+        if item_price is None:
+            item_price = get_value(menu_item, "price", default=0)
+
         items.append({
             "id": getattr(line, "id", None),
-            "name": get_value(line, "item_name", "name", default="Unknown item"),
+            "name": item_name,
             "quantity": get_value(line, "quantity", default=1),
-            "price": float(
-                get_value(line, "unit_price", "price", default=0) or 0
-            ),
+            "price": float(item_price or 0),
         })
 
     created_at = get_value(order, "created_at")
@@ -37,7 +49,9 @@ def serialize_order(order):
 
     return {
         "id": order.id,
-        "customer": get_value(order, "customer_name", "customer", default=""),
+        "customer": get_value(
+            order, "customer_name", "customer", default=""
+        ),
         "customer_phone": get_value(
             order, "phone", "customer_phone", "phone_number", default=""
         ),
@@ -45,7 +59,11 @@ def serialize_order(order):
         "total_amount": float(total or 0),
         "payment_method": get_value(order, "payment_method", default=""),
         "payment_status": get_value(order, "payment_status", default=""),
-        "created_at": created_at.isoformat() if created_at else None,
+        "created_at": (
+            created_at.isoformat()
+            if created_at and hasattr(created_at, "isoformat")
+            else None
+        ),
         "status": str(
             get_value(order, "order_status", "status", default="Pending")
         ).upper(),
@@ -54,40 +72,48 @@ def serialize_order(order):
 
 
 def load_orders():
+    """Load orders, newest first."""
     orders = Order.query.all()
+
     return sorted(
         orders,
-        key=lambda order: get_value(order, "created_at") or datetime.min,
+        key=lambda order: (
+            get_value(order, "created_at") or datetime.min
+        ),
         reverse=True,
     )
 
 
 def parse_date(value):
+    """Parse an optional YYYY-MM-DD date."""
     if not value:
         return None
+
     try:
         return date.fromisoformat(value)
     except ValueError:
-        raise ValueError(f"Invalid date '{value}'. Use YYYY-MM-DD.")
+        raise ValueError(
+            f"Invalid date '{value}'. Use YYYY-MM-DD."
+        )
 
 
 def order_in_date_range(order, start_date=None, end_date=None):
+    """Check whether an order falls within the requested date range."""
     created_at = get_value(order, "created_at")
+
     if not created_at:
         return False
 
-    order_date = (
-        created_at.date() if isinstance(created_at, datetime) else created_at
-    )
-
-    if isinstance(order_date, datetime):
-        order_date = order_date.date()
-
-    if not isinstance(order_date, date):
+    if isinstance(created_at, datetime):
+        order_date = created_at.date()
+    elif isinstance(created_at, date):
+        order_date = created_at
+    else:
         return False
 
     if start_date and order_date < start_date:
         return False
+
     if end_date and order_date > end_date:
         return False
 
@@ -96,34 +122,45 @@ def order_in_date_range(order, start_date=None, end_date=None):
 
 def order_amount(order):
     try:
-        return float(get_value(order, "total", "total_amount", default=0) or 0)
+        return float(
+            get_value(order, "total", "total_amount", default=0) or 0
+        )
     except (TypeError, ValueError):
         return 0.0
 
 
 def is_paid(order):
+    """Only count confirmed payments as revenue."""
     status = str(
         get_value(order, "payment_status", default="")
     ).strip().upper()
+
     return status in {"PAID", "COMPLETED", "SUCCESS", "SUCCESSFUL"}
 
 
 def payment_type(order):
-    return str(
-        get_value(order, "payment_method", default="")
-    ).strip().upper().replace("-", "").replace("_", "")
+    return (
+        str(get_value(order, "payment_method", default=""))
+        .strip()
+        .upper()
+        .replace("-", "")
+        .replace("_", "")
+    )
 
 
 def unique_customers(orders):
+    """Count identifiable customers without counting repeat orders twice."""
     customers = {}
 
     for order in orders:
         name = str(
             get_value(order, "customer_name", "customer", default="") or ""
         ).strip()
+
         phone = str(
-            get_value(order, "phone", "customer_phone", "phone_number", default="")
-            or ""
+            get_value(
+                order, "phone", "customer_phone", "phone_number", default=""
+            ) or ""
         ).strip()
 
         if phone:
@@ -143,16 +180,19 @@ def unique_customers(orders):
 
 @manager_bp.get("/orders")
 def get_manager_orders():
+    """Return all orders for the Manager Dashboard."""
     try:
-        return jsonify([
-            serialize_order(order) for order in load_orders()
-        ]), 200
+        orders = load_orders()
+        return jsonify([serialize_order(order) for order in orders]), 200
     except Exception:
-        return jsonify({"error": "Unable to retrieve orders."}), 500
+        return jsonify({
+            "error": "Unable to retrieve orders."
+        }), 500
 
 
 @manager_bp.get("/dashboard")
 def get_manager_dashboard():
+    """Return order counts, revenue, and payment statistics."""
     try:
         orders = load_orders()
         today = date.today()
@@ -162,13 +202,19 @@ def get_manager_dashboard():
             order for order in orders
             if order_in_date_range(order, month_start, today)
         ]
+
         today_orders = [
             order for order in orders
             if order_in_date_range(order, today, today)
         ]
 
-        monthly_paid = [order for order in monthly_orders if is_paid(order)]
-        paid_today = [order for order in today_orders if is_paid(order)]
+        monthly_paid = [
+            order for order in monthly_orders if is_paid(order)
+        ]
+
+        paid_today = [
+            order for order in today_orders if is_paid(order)
+        ]
 
         status_counts = {status: 0 for status in ORDER_STATUSES}
 
@@ -176,23 +222,28 @@ def get_manager_dashboard():
             status = str(
                 get_value(order, "order_status", "status", default="")
             ).upper()
+
             if status in status_counts:
                 status_counts[status] += 1
 
         cash_sales = sum(
-            order_amount(order) for order in orders
+            order_amount(order)
+            for order in orders
             if is_paid(order) and payment_type(order) == "CASH"
         )
+
         mpesa_sales = sum(
-            order_amount(order) for order in orders
+            order_amount(order)
+            for order in orders
             if is_paid(order)
             and payment_type(order) in {"MPESA", "SAFARICOM"}
         )
 
         active_orders = sum(
             1 for order in orders
-            if str(get_value(order, "order_status", "status", default="")).upper()
-            in {"PENDING", "PREPARING", "READY"}
+            if str(
+                get_value(order, "order_status", "status", default="")
+            ).upper() in {"PENDING", "PREPARING", "READY"}
         )
 
         return jsonify({
@@ -203,7 +254,8 @@ def get_manager_dashboard():
                 "total_customers": len(unique_customers(orders)),
                 "active_orders": active_orders,
                 "total_sales": round(sum(
-                    order_amount(order) for order in orders if is_paid(order)
+                    order_amount(order)
+                    for order in orders if is_paid(order)
                 ), 2),
                 "monthly_revenue": round(sum(
                     order_amount(order) for order in monthly_paid
@@ -227,6 +279,7 @@ def get_manager_dashboard():
 
 @manager_bp.get("/sales")
 def get_manager_sales():
+    """Return confirmed sales grouped by date."""
     try:
         start_date = parse_date(request.args.get("start_date"))
         end_date = parse_date(request.args.get("end_date"))
@@ -249,6 +302,7 @@ def get_manager_sales():
                 continue
 
             created_at = get_value(order, "created_at")
+
             if not created_at:
                 continue
 
@@ -280,16 +334,23 @@ def get_manager_sales():
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
     except Exception:
-        return jsonify({"error": "Unable to retrieve sales."}), 500
+        return jsonify({
+            "error": "Unable to retrieve sales."
+        }), 500
 
 
 @manager_bp.get("/customers")
 def get_manager_customers():
+    """Return unique identifiable customers."""
     try:
         customers = unique_customers(load_orders())
+
         return jsonify({
             "total_customers": len(customers),
             "customers": list(customers.values()),
         }), 200
+
     except Exception:
-        return jsonify({"error": "Unable to retrieve customers."}), 500
+        return jsonify({
+            "error": "Unable to retrieve customers."
+        }), 500
