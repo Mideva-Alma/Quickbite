@@ -135,8 +135,8 @@ function ManagerDashboard() {
   const [foodFormLoading, setFoodFormLoading] = useState(false);
 
   const [showSettings, setShowSettings] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState("waiters");
-
+  const [activeSettingsTab, setActiveSettingsTab] = useState("");
+  const [showWaiterManagementMenu, setShowWaiterManagementMenu] = useState(false);
   const [showWaiterForm, setShowWaiterForm] = useState(false);
   const [waiterNameDraft, setWaiterNameDraft] = useState("");
   const [waiters, setWaiters] = useState([]);
@@ -750,38 +750,45 @@ const handleRemoveShift = async (shiftId) => {
         <header className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-5">
 
-            {/* SETTINGS BUTTON ON THE LEFT */}
-            <div className="flex items-start justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSettings((previous) => !previous);
-                  setShowAddFoodForm(false);
-                  setShowWaiterForm(false);
-                }}
-                className="flex shrink-0 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
-              >
-                <span aria-hidden="true">⚙</span>
-                {showSettings ? "Close Settings" : "Settings"}
-              </button>
+          {/* CENTERED DASHBOARD HEADER */}
+<div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+  <button
+    type="button"
+    onClick={() => {
+      setShowSettings((previous) => !previous);
+      setShowAddFoodForm(false);
+      setShowWaiterForm(false);
+      setShowWaiterManagementMenu(false);
+      setActiveSettingsTab("");
+    }}
+    className="flex shrink-0 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 sm:px-5"
+  >
+    <span aria-hidden="true">⚙</span>
+    <span className="hidden sm:inline">
+      {showSettings ? "Close Settings" : "Settings"}
+    </span>
+    <span className="sm:hidden">
+      {showSettings ? "Close" : "Settings"}
+    </span>
+  </button>
 
-              <div className="flex items-center gap-3">
-                <div className="hidden h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-xl font-bold text-white sm:flex">
-                  Q
-                </div>
+  <div className="col-start-2 flex min-w-0 flex-col items-center justify-center gap-2 text-center sm:flex-row">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-lg font-bold text-white sm:h-12 sm:w-12 sm:text-xl">
+      Q
+    </div>
 
-                <div className="text-right">
-                  <h1 className="text-xl font-bold text-slate-800 sm:text-3xl">
-                    Manager Dashboard
-                  </h1>
+    <div className="min-w-0">
+      <h1 className="text-lg font-bold text-slate-800 sm:text-3xl">
+        Manager Dashboard
+      </h1>
+      <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+        Restaurant management and performance overview
+      </p>
+    </div>
+  </div>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Restaurant management and performance overview
-                  </p>
-                </div>
-              </div>
-            </div>
-
+  <div aria-hidden="true" />
+</div>
             <div className="border-t border-slate-100 pt-4">
               <p className="text-sm text-slate-600">
                 Signed in as{" "}
@@ -997,96 +1004,115 @@ const handleRemoveShift = async (shiftId) => {
             {foodFormSuccess}
           </p>
         )}
-
         {/* SETTINGS */}
-        {showSettings && (
-          <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <SectionTitle
-              title="Restaurant Settings"
-              description="Manage restaurant operations, waiter profiles and staff shifts."
-            />
+{showSettings && (
+  <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <SectionTitle
+      title="Restaurant Settings"
+      description="Manage restaurant operations, waiter profiles and staff shifts."
+    />
+           {/* SETTINGS ACTIONS */}
+<div className="mb-6 border-b border-slate-200 pb-5">
+  <div className="mb-4 flex justify-end">
+    <Link
+      to="/menu"
+      className="text-sm font-medium text-slate-500 transition hover:text-blue-600"
+    >
+      ← Back to Menu
+    </Link>
+  </div>
 
-            {/* SETTINGS ACTIONS */}
-            <div className="mb-6 flex flex-wrap gap-3 border-b border-slate-200 pb-5">
-              <Link
-                to="/menu"
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Back to Menu
-              </Link>
+  <div className="flex flex-col gap-3 sm:flex-row">
+    {/* ADD FOOD */}
+    <button
+      type="button"
+      onClick={() => {
+        setShowAddFoodForm(true);
+        setShowSettings(false);
+        setShowWaiterForm(false);
+        setShowWaiterManagementMenu(false);
+        setFoodFormError("");
+        setFoodFormSuccess("");
+      }}
+      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+    >
+      + Add Food
+    </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddFoodForm(true);
-                  setShowSettings(false);
-                  setShowWaiterForm(false);
-                  setFoodFormError("");
-                  setFoodFormSuccess("");
-                }}
-                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-              >
-                + Add Food
-              </button>
+    {/* WAITER MANAGEMENT */}
+    <button
+      type="button"
+      onClick={() =>
+        setShowWaiterManagementMenu((previous) => !previous)
+      }
+      aria-expanded={showWaiterManagementMenu}
+      className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 font-semibold text-blue-700 transition hover:bg-blue-100"
+    >
+      Waiter Management
+      <span>{showWaiterManagementMenu ? "▲" : "▼"}</span>
+    </button>
 
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-              >
-                Log Out
-              </button>
-            </div>
+    {/* LOG OUT */}
+    <button
+      type="button"
+      onClick={handleLogout}
+      className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 font-semibold text-rose-700 transition hover:bg-rose-100"
+    >
+      Log Out
+    </button>
+  </div>
 
-            {/* SETTINGS TABS */}
-            <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-4">
-              <button
-                type="button"
-                onClick={() => setActiveSettingsTab("waiters")}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-                  activeSettingsTab === "waiters"
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                Waiter Management
-              </button>
+  {/* WAITER MANAGEMENT DROPDOWN */}
+  {showWaiterManagementMenu && (
+    <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3">
+      <button
+        type="button"
+        onClick={() => {
+          setActiveSettingsTab("waiters");
+          setShowWaiterForm(true);
+          setShowWaiterManagementMenu(false);
+        }}
+        className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+      >
+        + Add Waiter
+      </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveSettingsTab("shifts")}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-                  activeSettingsTab === "shifts"
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                Shift Scheduling
-              </button>
-            </div>
+      <button
+        type="button"
+        onClick={() => {
+          setActiveSettingsTab("shifts");
+          setShowWaiterForm(false);
+          setShowWaiterManagementMenu(false);
+        }}
+        className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+      >
+        Shift Scheduling
+      </button>
 
-            {/* WAITER MANAGEMENT */}
-            {activeSettingsTab === "waiters" && (
-              <div>
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold text-slate-800">
-                      Waiter Roster
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Manage your waiters in an organized numbered list.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowWaiterForm((previous) => !previous)}
-                    className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-                  >
-                    + Add Waiter
-                  </button>
-                </div>
-
+      <button
+        type="button"
+        onClick={() => {
+          setActiveSettingsTab("waiters");
+          setShowWaiterForm(false);
+          setShowWaiterManagementMenu(false);
+        }}
+        className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+      >
+        Waiter Roster
+      </button>
+    </div>
+  )}
+</div>
+     {activeSettingsTab === "waiters" && (
+  <div>
+          <div className="mb-5">
+  <h3 className="text-lg font-bold text-slate-800">
+    Waiter Roster
+  </h3>
+  <p className="mt-1 text-sm text-slate-500">
+    View and manage your registered restaurant waiters.
+  </p>
+</div>
                 {waiterFormError && (
                   <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
                     {waiterFormError}
@@ -1133,43 +1159,50 @@ const handleRemoveShift = async (shiftId) => {
                   </form>
                 )}
 
-                {/* NUMBERED VERTICAL WAITER LIST */}
-                {waiters.length === 0 ? (
-                  <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
-                    No waiter profiles yet. Add a waiter to get started.
-                  </p>
-                ) : (
-                  <ol className="space-y-3">
-                    {waiters.map((waiter, index) => (
-                      <li
-                        key={waiter.id}
-                        className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
-                      >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">
-                          {index + 1}
-                        </span>
+             {/* WAITER ROSTER CARDS */}
+{waiters.length === 0 ? (
+  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+    <p className="font-medium text-slate-700">
+      No waiters registered yet.
+    </p>
+    <p className="mt-1 text-sm text-slate-500">
+      Select Add Waiter from Waiter Management to register your first waiter.
+    </p>
+  </div>
+) : (
+  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+    {waiters.map((waiter) => (
+      <div
+        key={waiter.id}
+        className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md sm:flex-row sm:items-center"
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 text-lg font-bold text-blue-700">
+            {waiter.full_name?.charAt(0)?.toUpperCase() || "W"}
+          </div>
 
-                        <div className="min-w-0 flex-1">
-                          <p className="break-words font-semibold text-slate-800">
-                            {waiter.full_name}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            Waiter profile
-                          </p>
-                        </div>
+          <div className="min-w-0">
+            <p className="break-words font-semibold text-slate-800">
+              {waiter.full_name}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Registered Waiter
+            </p>
+          </div>
+        </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteWaiter(waiter)}
-                          disabled={deletingWaiterId === waiter.id}
-                          className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-60"
-                        >
-                          {deletingWaiterId === waiter.id ? "Removing..." : "Remove"}
-                        </button>
-                      </li>
-                    ))}
-                  </ol>
-                )}
+        <button
+          type="button"
+          onClick={() => handleDeleteWaiter(waiter)}
+          disabled={deletingWaiterId === waiter.id}
+          className="w-full shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+        >
+          {deletingWaiterId === waiter.id ? "Removing..." : "Remove"}
+        </button>
+      </div>
+    ))}
+  </div>
+)}
               </div>
             )}
 
