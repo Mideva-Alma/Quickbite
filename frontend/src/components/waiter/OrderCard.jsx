@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { ORDER_STATUSES } from "../../utils/orderHelpers";
 
@@ -78,6 +79,10 @@ function OrderCard({
   const styles = STATUS_STYLES[order.orderStatus] || STATUS_STYLES.Served;
   const isServed = order.orderStatus === "Served";
 
+  const assignedWaiterIsAvailable = waiters.some(
+    (waiter) => String(waiter.id) === String(order.assignedWaiterId)
+  );
+
   return (
     <article
       className={`rounded-xl border-l-4 bg-white p-6 shadow ${styles.border}`}
@@ -151,6 +156,12 @@ function OrderCard({
             >
               <option value="">Select waiter</option>
 
+              {order.assignedWaiterId && !assignedWaiterIsAvailable && (
+                <option value={String(order.assignedWaiterId)} disabled>
+                  {order.assignedWaiterName || "Currently assigned waiter"} (unavailable)
+                </option>
+              )}
+
               {waiters.map((waiter) => (
                 <option key={waiter.id} value={String(waiter.id)}>
                   {waiter.full_name}
@@ -160,7 +171,12 @@ function OrderCard({
 
             <button
               type="button"
-              disabled={!waiterChoice || isSaving}
+              disabled={
+                !waiterChoice ||
+                isSaving ||
+                (waiterChoice === String(order.assignedWaiterId) &&
+                  !assignedWaiterIsAvailable)
+              }
               onClick={() => onAssignWaiter(order.id, waiterChoice)}
               className="rounded-lg border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
             >

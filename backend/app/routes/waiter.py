@@ -1,10 +1,16 @@
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from flask import Blueprint, jsonify, request
+from sqlalchemy import or_
 
 from ..extensions import db
 from ..models.order import Order
 from ..models.waiter_profile import WaiterProfile
+from ..models.weekly_shift import WeeklyShift
 from ..utils.auth import staff_required
-from sqlalchemy import or_
+
 
 waiter_bp = Blueprint(
     "waiter",
@@ -13,6 +19,38 @@ waiter_bp = Blueprint(
 )
 
 ORDER_STATUSES = ["Pending", "Preparing", "Ready", "Served"]
+
+ACTIVE_ORDER_STATUSES = ["Pending", "Preparing", "Ready"]
+
+
+def is_waiter_on_shift(waiter_id):
+    """Check whether a waiter is within their scheduled Nairobi shift."""
+
+    now = datetime.now(ZoneInfo("Africa/Nairobi"))
+    current_day = now.weekday()
+    current_time = now.time().replace(tzinfo=None)
+
+    return WeeklyShift.query.filter(
+        WeeklyShift.waiter_id == waiter_id,
+        WeeklyShift.is_active.is_(True),
+        WeeklyShift.day_of_week == current_day,
+        WeeklyShift.start_time <= current_time,
+        WeeklyShift.end_time > current_time,
+    ).first() is not None
+
+
+def waiter_has_active_order(waiter_id, exclude_order_id=None):
+    """Check whether a waiter already has another unfinished order."""
+
+    query = Order.query.filter(
+        Order.assigned_waiter_id == waiter_id,
+        Order.order_status.in_(ACTIVE_ORDER_STATUSES),
+    )
+
+    if exclude_order_id is not None:
+        query = query.filter(Order.id != exclude_order_id)
+
+    return query.first() is not None
 
 
 def serialize_order(order):
@@ -92,7 +130,8 @@ def get_orders():
 )
 @staff_required("waiter")
 def assign_order_waiter(order_id):
-    """Assign or unassign an active waiter before service is completed."""
+    """Assign an eligible waiter or unassign an existing waiter."""
+
     order = db.session.get(Order, order_id)
 
     if order is None:
@@ -113,6 +152,7 @@ def assign_order_waiter(order_id):
     if waiter_id is None:
         order.assigned_waiter = None
         order.served_by_name = None
+
     else:
         if (
             isinstance(waiter_id, bool)
@@ -126,6 +166,22 @@ def assign_order_waiter(order_id):
         if waiter is None or not waiter.is_active:
             return jsonify({
                 "error": "The selected waiter is not active."
+            }), 400
+
+        # Check whether the waiter is currently scheduled.
+        if not is_waiter_on_shift(waiter.id):
+            return jsonify({
+                "error": "This waiter is not currently on their scheduled shift."
+            }), 400
+
+        # Exclude this order so a waiter can keep or receive
+        # the same order without being counted as already busy.
+        if waiter_has_active_order(
+            waiter.id,
+            exclude_order_id=order.id,
+        ):
+            return jsonify({
+                "error": "This waiter is already handling another active order."
             }), 400
 
         order.assigned_waiter = waiter

@@ -3,26 +3,15 @@ import { useState } from "react";
 
 const MENU_ITEMS = [
   { key: "team", label: "Waiter Team" },
-  { key: "record", label: "My record and shifts" },
-  { key: "roster", label: "Who is on shift" },
-  { key: "account", label: "Account settings" },
+  { key: "available", label: "Available Waiters" },
 ];
 
-function WaiterSettingsMenu({
-  onSelect,
-  onLogout,
-  onBackToMenu,
-}) {
+function WaiterSettingsMenu({ onSelect, onLogout }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const choose = (key) => {
     setIsOpen(false);
     onSelect(key);
-  };
-
-  const goBackToMenu = () => {
-    setIsOpen(false);
-    onBackToMenu();
   };
 
   const logout = () => {
@@ -34,7 +23,7 @@ function WaiterSettingsMenu({
     <div className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen((previous) => !previous)}
         aria-expanded={isOpen}
         className="rounded-lg bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow hover:bg-gray-50"
       >
@@ -54,7 +43,7 @@ function WaiterSettingsMenu({
                 <button
                   type="button"
                   onClick={() => choose(item.key)}
-                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                  className="block w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-100"
                 >
                   {item.label}
                 </button>
@@ -64,20 +53,10 @@ function WaiterSettingsMenu({
             <li className="border-t border-gray-200">
               <button
                 type="button"
-                onClick={goBackToMenu}
-                className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-              >
-                Back to Menu
-              </button>
-            </li>
-
-            <li className="border-t border-gray-200">
-              <button
-                type="button"
                 onClick={logout}
-                className="block w-full px-4 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+                className="block w-full px-4 py-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
               >
-                Log out
+                Logout
               </button>
             </li>
           </ul>
