@@ -1,107 +1,99 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import {
+  Utensils,
+  ShoppingCart,
+  ReceiptText,
+  Gamepad2,
+  Menu as MenuIcon,
+  X,
+} from "lucide-react";
+import { useCart } from "../context/CartContext";
+import logo from "../assets/QuickBite-logo.png";
 
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const { cartCount } = useCart();
+  const location = useLocation();
 
-  const closeMenu = () => {
-    setIsOpen(false);
-  };
+  const links = [
+    { to: "/menu", label: "Menu", Icon: Utensils },
+    { to: "/cart", label: "Cart", Icon: ShoppingCart },
+    { to: "/order-status", label: "Order Status", Icon: ReceiptText },
+    { to: "/games", label: "Games", Icon: Gamepad2 },
+  ];
 
   return (
-    <>
-      {/* Menu button — visible on desktop and mobile */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed left-4 top-4 z-[60] flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-lg bg-red-500 shadow-md"
-        aria-label={isOpen ? "Close menu" : "Open menu"}
-        aria-expanded={isOpen}
-      >
-        <span
-          className={`block h-0.5 w-5 bg-white transition-transform ${
-            isOpen ? "translate-y-2 rotate-45" : ""
-          }`}
-        />
-        <span
-          className={`block h-0.5 w-5 bg-white transition-opacity ${
-            isOpen ? "opacity-0" : ""
-          }`}
-        />
-        <span
-          className={`block h-0.5 w-5 bg-white transition-transform ${
-            isOpen ? "-translate-y-2 -rotate-45" : ""
-          }`}
-        />
-      </button>
+    <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white shadow-sm">
+      <div className="mx-auto flex min-h-20 max-w-7xl items-center justify-between gap-4 px-4 py-3">
+        <Link to="/menu" className="shrink-0">
+          <img
+            src={logo}
+            alt="Quickbite"
+            className="h-20 w-auto max-w-50 object-contain"
+          />
+        </Link>
 
-      {/* Overlay */}
-      {isOpen && (
-        <div
-          onClick={closeMenu}
-          className="fixed inset-0 z-40 bg-black/40"
-        />
-      )}
+        <nav className="hidden items-center gap-2 md:flex">
+          {links.map(({ to, label, Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              className={`relative flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold no-underline transition ${
+                location.pathname === to
+                  ? "bg-red-50 text-red-600"
+                  : "text-gray-700 hover:bg-gray-100 hover:text-red-600"
+              }`}
+            >
+              <Icon size={19} />
+              <span>{label}</span>
 
-      {/* Sidebar — hidden until the menu button is clicked */}
-      <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen w-64 flex-col bg-red-500 p-5 shadow-xl transition-transform duration-300 ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        {/* Logo */}
-        <div className="mb-8 flex h-32 shrink-0 items-center justify-center rounded-xl bg-white">
-          <span className="text-2xl font-bold text-red-500">
-            QUICKBITE
-          </span>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex flex-col gap-4">
-          <Link
-            to="/menu"
-            onClick={closeMenu}
-            className="rounded-xl bg-white px-5 py-4 text-center font-bold text-red-500 no-underline transition hover:bg-red-50"
-          >
-            Menu
-          </Link>
-
-          <Link
-            to="/cart"
-            onClick={closeMenu}
-            className="rounded-xl bg-white px-5 py-4 text-center font-bold text-red-500 no-underline transition hover:bg-red-50"
-          >
-            Cart
-          </Link>
-
-          <Link
-            to="/order-status"
-            onClick={closeMenu}
-            className="rounded-xl bg-white px-5 py-4 text-center font-bold text-red-500 no-underline transition hover:bg-red-50"
-          >
-            Order Status
-          </Link>
-
-          <Link
-            to="/games"
-            onClick={closeMenu}
-            className="rounded-xl bg-white px-5 py-4 text-center font-bold text-red-500 no-underline transition hover:bg-red-50"
-          >
-            Games
-          </Link>
+              {label === "Cart" && cartCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          ))}
         </nav>
 
-        {/* Staff Login */}
-        <div className="mt-auto">
-          <Link
-            to="/staff-login"
-            onClick={closeMenu}
-            className="block rounded-xl bg-white px-5 py-4 text-center font-bold text-red-500 no-underline transition hover:bg-red-50"
-          >
-            Staff Login
-          </Link>
-        </div>
-      </aside>
-    </>
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 md:hidden"
+          aria-label={isOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={isOpen}
+        >
+          {isOpen ? <X size={25} /> : <MenuIcon size={25} />}
+        </button>
+      </div>
+
+      {isOpen && (
+        <nav className="flex flex-col gap-1 border-t border-gray-200 bg-white p-3 md:hidden">
+          {links.map(({ to, label, Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              onClick={() => setIsOpen(false)}
+              className={`flex items-center gap-3 rounded-lg px-4 py-3 font-semibold no-underline ${
+                location.pathname === to
+                  ? "bg-red-50 text-red-600"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <Icon size={20} />
+              <span>{label}</span>
+
+              {label === "Cart" && cartCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          ))}
+        </nav>
+      )}
+    </header>
   );
 }
 
