@@ -1034,7 +1034,7 @@ const handleRemoveShift = async (shiftId) => {
         setFoodFormError("");
         setFoodFormSuccess("");
       }}
-      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+      className="flex w-full items-center justify-center"
     >
       + Add Food
     </button>
@@ -1046,7 +1046,7 @@ const handleRemoveShift = async (shiftId) => {
         setShowWaiterManagementMenu((previous) => !previous)
       }
       aria-expanded={showWaiterManagementMenu}
-      className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 font-semibold text-blue-700 transition hover:bg-blue-100"
+      className="flex w-full items-center justify-center"
     >
       Waiter Management
       <span>{showWaiterManagementMenu ? "▲" : "▼"}</span>
@@ -1056,7 +1056,7 @@ const handleRemoveShift = async (shiftId) => {
     <button
       type="button"
       onClick={handleLogout}
-      className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 font-semibold text-rose-700 transition hover:bg-rose-100"
+      className="flex w-full items-center justify-center"
     >
       Log Out
     </button>
