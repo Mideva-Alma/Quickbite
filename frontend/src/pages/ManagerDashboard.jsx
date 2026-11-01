@@ -1022,7 +1022,7 @@ const handleRemoveShift = async (shiftId) => {
     </Link>
   </div>
 
-  <div className="flex flex-col gap-3 sm:flex-row">
+  <div className="flex flex-col gap-3">
     {/* ADD FOOD */}
     <button
       type="button"
