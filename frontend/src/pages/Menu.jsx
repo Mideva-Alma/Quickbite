@@ -1,6 +1,8 @@
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getMeals } from "../services/api";
+import { useCart } from "../context/CartContext";
 import FoodCard from "../components/menu/FoodCard";
 import Loading from "../components/menu/Loading";
 import ErrorMessage from "../components/menu/ErrorMessage";
@@ -8,6 +10,13 @@ import SearchBar from "../components/menu/SearchBar";
 import CategoryFilter from "../components/menu/CategoryFilter";
 
 function Menu() {
+  const { cart } = useCart();
+
+  const cartItemCount = cart.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
+
   const [meals, setMeals] = useState([]);
   const [compareMeals, setCompareMeals] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -129,9 +138,17 @@ function Menu() {
 
         <Link
           to="/cart"
-          className="w-fit rounded-lg bg-red-500 px-5 py-3 font-semibold text-white transition hover:bg-red-600"
+          className="relative flex w-fit items-center gap-3 rounded-lg bg-red-500 px-5 py-3 font-semibold text-white transition hover:bg-red-600"
         >
           View Cart
+
+          <span
+            key={cartItemCount}
+            className="flex h-7 min-w-7 animate-bounce items-center justify-center rounded-full bg-yellow-400 px-2 text-sm font-extrabold text-red-700 shadow-md ring-2 ring-white"
+            aria-label={`${cartItemCount} items in cart`}
+          >
+            {cartItemCount}
+          </span>
         </Link>
       </div>
 
