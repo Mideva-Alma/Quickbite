@@ -1,17 +1,28 @@
+
 import { useState } from "react";
 
 const MENU_ITEMS = [
+  { key: "team", label: "Waiter Team" },
   { key: "record", label: "My record and shifts" },
   { key: "roster", label: "Who is on shift" },
   { key: "account", label: "Account settings" },
 ];
 
-function WaiterSettingsMenu({ onSelect, onLogout }) {
+function WaiterSettingsMenu({
+  onSelect,
+  onLogout,
+  onBackToMenu,
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   const choose = (key) => {
     setIsOpen(false);
     onSelect(key);
+  };
+
+  const goBackToMenu = () => {
+    setIsOpen(false);
+    onBackToMenu();
   };
 
   const logout = () => {
@@ -36,7 +47,8 @@ function WaiterSettingsMenu({ onSelect, onLogout }) {
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
           />
-          <ul className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-lg bg-white py-1 shadow-lg">
+
+          <ul className="absolute left-0 z-20 mt-2 w-56 overflow-hidden rounded-lg bg-white py-1 shadow-lg">
             {MENU_ITEMS.map((item) => (
               <li key={item.key}>
                 <button
@@ -48,6 +60,17 @@ function WaiterSettingsMenu({ onSelect, onLogout }) {
                 </button>
               </li>
             ))}
+
+            <li className="border-t border-gray-200">
+              <button
+                type="button"
+                onClick={goBackToMenu}
+                className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Back to Menu
+              </button>
+            </li>
+
             <li className="border-t border-gray-200">
               <button
                 type="button"
