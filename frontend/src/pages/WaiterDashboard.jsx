@@ -4,7 +4,9 @@ import { Link, useNavigate } from "react-router-dom";
 import OrderCard from "../components/waiter/OrderCard";
 import StatusFilter from "../components/waiter/StatusFilter";
 import ReceiptPreview from "../components/waiter/ReceiptPreview";
-
+import WaiterSettingsMenu from "../components/waiter/WaiterSettingsMenu";
+import WaiterRecord from "../components/waiter/WaiterRecord";
+import WaiterRoster from "../components/waiter/WaiterRoster";
 import { ORDER_STATUSES } from "../utils/orderHelpers";
 
 import {
@@ -56,7 +58,8 @@ function normalizeOrder(order) {
 function WaiterDashboard() {
   const navigate = useNavigate();
   const staffUser = getStaffUser();
-
+  const [activePanel, setActivePanel] = useState("orders");
+  
   const [orders, setOrders] = useState([]);
   const [waiters, setWaiters] = useState([]);
 
@@ -400,17 +403,37 @@ function WaiterDashboard() {
               >
                 Back to Menu
               </Link>
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-lg bg-gray-800 px-4 py-3 font-semibold text-white hover:bg-gray-900"
-              >
-                Log Out
-              </button>
+             <WaiterSettingsMenu
+  onSelect={setActivePanel}
+  onLogout={handleLogout}
+/>
             </div>
           </div>
+          {activePanel !== "orders" && (
+  <button
+    type="button"
+    onClick={() => setActivePanel("orders")}
+    className="rounded-lg bg-gray-800 px-4 py-2 font-semibold text-white hover:bg-gray-900"
+  >
+    Back to Orders
+  </button>
+)}
+          {activePanel === "record" && <WaiterRecord />}
 
+{activePanel === "roster" && <WaiterRoster />}
+
+{activePanel === "account" && (
+  <section className="rounded-xl bg-white p-6 shadow">
+    <h2 className="text-xl font-bold text-gray-800">
+      Account settings
+    </h2>
+    <p className="mt-2 text-gray-600">
+      Account settings will be available here.
+    </p>
+  </section>
+)}
+        {activePanel === "orders" && (
+          <>
           {/* Shared waiter roster */}
           <section className="rounded-xl bg-white p-5 shadow">
             <h2 className="text-xl font-bold text-gray-800">
@@ -529,6 +552,8 @@ function WaiterDashboard() {
               ))}
             </div>
           )}
+          </>
+        )}
         </div>
       </main>
 
