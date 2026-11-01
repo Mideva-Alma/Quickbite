@@ -1,3 +1,4 @@
+
 import {
   useCallback,
   useEffect,
@@ -666,13 +667,6 @@ function ManagerDashboard() {
     };
   }, [orders, currentMonth, currentYear]);
 
-  const handleRefresh = () => {
-    loadOrders();
-    loadStock();
-    loadDashboardStats();
-    loadWaiters();
-  };
-
   if (loading && orders.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100">
@@ -714,15 +708,30 @@ function ManagerDashboard() {
 
         {/* HEADER */}
         <header className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-            <div>
+          <div className="flex flex-col gap-5">
+
+            {/* SETTINGS BUTTON ON THE LEFT */}
+            <div className="flex items-start justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSettings((previous) => !previous);
+                  setShowAddFoodForm(false);
+                  setShowWaiterForm(false);
+                }}
+                className="flex shrink-0 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+              >
+                <span aria-hidden="true">⚙</span>
+                {showSettings ? "Close Settings" : "Settings"}
+              </button>
+
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-xl font-bold text-white">
+                <div className="hidden h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-xl font-bold text-white sm:flex">
                   Q
                 </div>
 
-                <div>
-                  <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">
+                <div className="text-right">
+                  <h1 className="text-xl font-bold text-slate-800 sm:text-3xl">
                     Manager Dashboard
                   </h1>
 
@@ -731,8 +740,10 @@ function ManagerDashboard() {
                   </p>
                 </div>
               </div>
+            </div>
 
-              <p className="mt-4 text-sm text-slate-600">
+            <div className="border-t border-slate-100 pt-4">
+              <p className="text-sm text-slate-600">
                 Signed in as{" "}
                 <span className="font-semibold text-slate-800">
                   {staffUser?.full_name || staffUser?.username || "Manager"}
@@ -742,58 +753,6 @@ function ManagerDashboard() {
                   Manager
                 </span>
               </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Link
-                to="/menu"
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Back to Menu
-              </Link>
-
-              <button
-                type="button"
-                onClick={handleRefresh}
-                disabled={loading || stockLoading}
-                className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
-              >
-                {loading || stockLoading ? "Refreshing..." : "Refresh"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddFoodForm((previous) => !previous);
-                  setShowSettings(false);
-                  setShowWaiterForm(false);
-                  setFoodFormError("");
-                  setFoodFormSuccess("");
-                }}
-                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-              >
-                + Add Food
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSettings((previous) => !previous);
-                  setShowAddFoodForm(false);
-                  setShowWaiterForm(false);
-                }}
-                className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
-              >
-                Settings
-              </button>
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-              >
-                Log Out
-              </button>
             </div>
           </div>
         </header>
@@ -1004,9 +963,42 @@ function ManagerDashboard() {
           <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <SectionTitle
               title="Restaurant Settings"
-              description="Manage your waiter roster and view planned staff shifts."
+              description="Manage restaurant operations, waiter profiles and staff shifts."
             />
 
+            {/* SETTINGS ACTIONS */}
+            <div className="mb-6 flex flex-wrap gap-3 border-b border-slate-200 pb-5">
+              <Link
+                to="/menu"
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Back to Menu
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddFoodForm(true);
+                  setShowSettings(false);
+                  setShowWaiterForm(false);
+                  setFoodFormError("");
+                  setFoodFormSuccess("");
+                }}
+                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+              >
+                + Add Food
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                Log Out
+              </button>
+            </div>
+
+            {/* SETTINGS TABS */}
             <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-4">
               <button
                 type="button"
@@ -1033,6 +1025,7 @@ function ManagerDashboard() {
               </button>
             </div>
 
+            {/* WAITER MANAGEMENT */}
             {activeSettingsTab === "waiters" && (
               <div>
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -1041,7 +1034,7 @@ function ManagerDashboard() {
                       Waiter Roster
                     </h3>
                     <p className="mt-1 text-sm text-slate-500">
-                      Add or remove waiter profiles.
+                      Manage your waiters in an organized numbered list.
                     </p>
                   </div>
 
@@ -1100,18 +1093,23 @@ function ManagerDashboard() {
                   </form>
                 )}
 
+                {/* NUMBERED VERTICAL WAITER LIST */}
                 {waiters.length === 0 ? (
                   <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
                     No waiter profiles yet. Add a waiter to get started.
                   </p>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {waiters.map((waiter) => (
-                      <div
+                  <ol className="space-y-3">
+                    {waiters.map((waiter, index) => (
+                      <li
                         key={waiter.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+                        className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
                       >
-                        <div className="min-w-0">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">
+                          {index + 1}
+                        </span>
+
+                        <div className="min-w-0 flex-1">
                           <p className="break-words font-semibold text-slate-800">
                             {waiter.full_name}
                           </p>
@@ -1128,13 +1126,14 @@ function ManagerDashboard() {
                         >
                           {deletingWaiterId === waiter.id ? "Removing..." : "Remove"}
                         </button>
-                      </div>
+                      </li>
                     ))}
-                  </div>
+                  </ol>
                 )}
               </div>
             )}
 
+            {/* SHIFT SCHEDULING */}
             {activeSettingsTab === "shifts" && (
               <div>
                 <div className="mb-5">
