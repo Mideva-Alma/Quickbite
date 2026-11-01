@@ -1,11 +1,15 @@
 
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
+from calendar import day_name
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 
+from ..extensions import db
 from ..models.order import Order
+from ..models.waiter_profile import WaiterProfile
+from ..models.weekly_shift import WeeklyShift
 from ..utils.auth import staff_required
 
 
@@ -24,6 +28,10 @@ PAID_STATUSES = {
     "SUCCESSFUL",
 }
 
+
+# =========================================================
+# EXISTING MANAGER FUNCTIONS
+# =========================================================
 
 def get_value(obj, *names, default=None):
     """Read the first available non-None attribute from an object."""
@@ -133,12 +141,7 @@ def order_sort_key(order):
 
 
 def load_orders():
-    """
-    Load orders visible to managers.
-
-    Cash orders remain visible.
-    M-Pesa orders are visible only after successful payment.
-    """
+    """Load orders visible to managers."""
     orders = Order.query.filter(
         or_(
             Order.payment_method != "M-Pesa",
@@ -273,6 +276,10 @@ def unique_customers(orders):
 
     return customers
 
+
+# =========================================================
+# EXISTING MANAGER ENDPOINTS
+# =========================================================
 
 @manager_bp.get("/orders")
 @staff_required("manager")
@@ -512,4 +519,385 @@ def get_manager_customers():
     except Exception:
         return jsonify({
             "error": "Unable to retrieve customers."
+        }), 500
+
+
+# =========================================================
+# WEEKLY WAITER SCHEDULING
+# =========================================================
+
+def serialize_weekly_shift(shift):
+    """Convert a weekly shift into JSON-friendly data."""
+    return {
+        "id": shift.id,
+        "waiter_id": shift.waiter_id,
+        "waiter_name": shift.waiter.full_name,
+        "day_of_week": shift.day_of_week,
+        "day_name": day_name[shift.day_of_week],
+        "start_time": shift.start_time.strftime("%H:%M"),
+        "end_time": shift.end_time.strftime("%H:%M"),
+        "is_active": shift.is_active,
+        "created_at": (
+            shift.created_at.isoformat()
+            if shift.created_at else None
+        ),
+    }
+
+
+def parse_shift_time(value, field_name):
+    """Validate and parse a 24-hour HH:MM time."""
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must use HH:MM format.")
+
+    try:
+        return datetime.strptime(value, "%H:%M").time()
+    except ValueError:
+        raise ValueError(
+            f"{field_name} must be a valid time in HH:MM format."
+        )
+
+
+def shift_overlaps(waiter_id, day, start_time, end_time, exclude_id=None):
+    """Check whether a new shift overlaps an active existing shift."""
+    query = WeeklyShift.query.filter(
+        WeeklyShift.waiter_id == waiter_id,
+        WeeklyShift.day_of_week == day,
+        WeeklyShift.is_active.is_(True),
+        WeeklyShift.start_time < end_time,
+        WeeklyShift.end_time > start_time,
+    )
+
+    if exclude_id is not None:
+        query = query.filter(WeeklyShift.id != exclude_id)
+
+    return query.first() is not None
+
+
+@manager_bp.get("/weekly-shifts")
+@staff_required("manager")
+def get_weekly_shifts():
+    """Return weekly schedules, optionally filtered by waiter or status."""
+    try:
+        query = WeeklyShift.query
+
+        waiter_id = request.args.get("waiter_id")
+        if waiter_id:
+            try:
+                waiter_id = int(waiter_id)
+            except ValueError:
+                return jsonify({
+                    "error": "waiter_id must be an integer."
+                }), 400
+
+            query = query.filter_by(waiter_id=waiter_id)
+
+        active = request.args.get("active")
+        if active is not None:
+            if active.lower() not in {"true", "false"}:
+                return jsonify({
+                    "error": "active must be true or false."
+                }), 400
+
+            query = query.filter_by(
+                is_active=active.lower() == "true"
+            )
+
+        shifts = query.order_by(
+            WeeklyShift.waiter_id,
+            WeeklyShift.day_of_week,
+            WeeklyShift.start_time,
+        ).all()
+
+        return jsonify({
+            "total": len(shifts),
+            "schedules": [
+                serialize_weekly_shift(shift)
+                for shift in shifts
+            ],
+        }), 200
+
+    except Exception:
+        return jsonify({
+            "error": "Unable to retrieve weekly schedules."
+        }), 500
+
+
+@manager_bp.post("/weekly-shifts")
+@staff_required("manager")
+def create_weekly_shifts():
+    """
+    Assign one or more recurring weekly shifts to a waiter.
+
+    The request is validated fully before any records are committed.
+    """
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "error": "Invalid request body."
+        }), 400
+
+    waiter_id = data.get("waiter_id")
+    shifts_data = data.get("shifts")
+
+    if isinstance(waiter_id, bool) or not isinstance(waiter_id, int):
+        return jsonify({
+            "error": "waiter_id must be an integer."
+        }), 400
+
+    waiter = db.session.get(WaiterProfile, waiter_id)
+
+    if waiter is None:
+        return jsonify({
+            "error": "Waiter not found."
+        }), 404
+
+    if not waiter.is_active:
+        return jsonify({
+            "error": "Cannot assign shifts to an inactive waiter."
+        }), 400
+
+    if not isinstance(shifts_data, list) or not shifts_data:
+        return jsonify({
+            "error": "shifts must be a non-empty list."
+        }), 400
+
+    if len(shifts_data) > 7:
+        return jsonify({
+            "error": "A maximum of seven shifts can be assigned at once."
+        }), 400
+
+    proposed = []
+
+    for index, item in enumerate(shifts_data):
+        if not isinstance(item, dict):
+            return jsonify({
+                "error": f"Shift at position {index} must be an object."
+            }), 400
+
+        day = item.get("day_of_week")
+
+        if isinstance(day, bool) or not isinstance(day, int) or not 0 <= day <= 6:
+            return jsonify({
+                "error": f"Invalid day_of_week at position {index}. Use 0 to 6."
+            }), 400
+
+        try:
+            start_time = parse_shift_time(
+                item.get("start_time"),
+                "start_time",
+            )
+            end_time = parse_shift_time(
+                item.get("end_time"),
+                "end_time",
+            )
+        except ValueError as error:
+            return jsonify({
+                "error": str(error)
+            }), 400
+
+        if end_time <= start_time:
+            return jsonify({
+                "error": "end_time must be later than start_time."
+            }), 400
+
+        proposed.append({
+            "day": day,
+            "start_time": start_time,
+            "end_time": end_time,
+        })
+
+    # Check overlaps against existing active shifts.
+    for item in proposed:
+        if shift_overlaps(
+            waiter_id,
+            item["day"],
+            item["start_time"],
+            item["end_time"],
+        ):
+            return jsonify({
+                "error": (
+                    f"{day_name[item['day']]} overlaps with an "
+                    "existing active shift."
+                )
+            }), 409
+
+    # Check overlaps among shifts in this same request.
+    for index, item in enumerate(proposed):
+        for other in proposed[index + 1:]:
+            if item["day"] != other["day"]:
+                continue
+
+            if (
+                item["start_time"] < other["end_time"]
+                and item["end_time"] > other["start_time"]
+            ):
+                return jsonify({
+                    "error": (
+                        f"The submitted shifts overlap on "
+                        f"{day_name[item['day']]}."
+                    )
+                }), 409
+
+    try:
+        created_shifts = []
+
+        for item in proposed:
+            shift = WeeklyShift(
+                waiter_id=waiter_id,
+                day_of_week=item["day"],
+                start_time=item["start_time"],
+                end_time=item["end_time"],
+                is_active=True,
+            )
+
+            db.session.add(shift)
+            created_shifts.append(shift)
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Weekly shifts assigned successfully.",
+            "waiter": waiter.full_name,
+            "total_created": len(created_shifts),
+            "schedules": [
+                serialize_weekly_shift(shift)
+                for shift in created_shifts
+            ],
+        }), 201
+
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "error": "Unable to assign weekly shifts."
+        }), 500
+
+
+@manager_bp.patch("/weekly-shifts/<int:shift_id>")
+@staff_required("manager")
+def update_weekly_shift(shift_id):
+    """Update a shift's day, time, or active status."""
+    shift = db.session.get(WeeklyShift, shift_id)
+
+    if shift is None:
+        return jsonify({
+            "error": "Weekly shift not found."
+        }), 404
+
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict) or not data:
+        return jsonify({
+            "error": "Provide at least one field to update."
+        }), 400
+
+    waiter_id = shift.waiter_id
+    day = shift.day_of_week
+    start_time = shift.start_time
+    end_time = shift.end_time
+    is_active = shift.is_active
+
+    if "waiter_id" in data:
+        return jsonify({
+            "error": "A shift cannot be transferred to another waiter. Create a new shift instead."
+        }), 400
+
+    if "day_of_week" in data:
+        day = data["day_of_week"]
+
+        if isinstance(day, bool) or not isinstance(day, int) or not 0 <= day <= 6:
+            return jsonify({
+                "error": "day_of_week must be an integer from 0 to 6."
+            }), 400
+
+    try:
+        if "start_time" in data:
+            start_time = parse_shift_time(
+                data["start_time"],
+                "start_time",
+            )
+
+        if "end_time" in data:
+            end_time = parse_shift_time(
+                data["end_time"],
+                "end_time",
+            )
+
+    except ValueError as error:
+        return jsonify({
+            "error": str(error)
+        }), 400
+
+    if "is_active" in data:
+        if not isinstance(data["is_active"], bool):
+            return jsonify({
+                "error": "is_active must be true or false."
+            }), 400
+
+        is_active = data["is_active"]
+
+    if end_time <= start_time:
+        return jsonify({
+            "error": "end_time must be later than start_time."
+        }), 400
+
+    # Only active shifts need to be checked for overlap.
+    if is_active and shift_overlaps(
+        waiter_id,
+        day,
+        start_time,
+        end_time,
+        exclude_id=shift.id,
+    ):
+        return jsonify({
+            "error": (
+                f"{day_name[day]} overlaps with another active shift."
+            )
+        }), 409
+
+    shift.day_of_week = day
+    shift.start_time = start_time
+    shift.end_time = end_time
+    shift.is_active = is_active
+
+    try:
+        db.session.commit()
+
+        return jsonify({
+            "message": "Weekly shift updated successfully.",
+            "schedule": serialize_weekly_shift(shift),
+        }), 200
+
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "error": "Unable to update weekly shift."
+        }), 500
+
+
+@manager_bp.delete("/weekly-shifts/<int:shift_id>")
+@staff_required("manager")
+def deactivate_weekly_shift(shift_id):
+    """Deactivate a weekly shift without deleting its history."""
+    shift = db.session.get(WeeklyShift, shift_id)
+
+    if shift is None:
+        return jsonify({
+            "error": "Weekly shift not found."
+        }), 404
+
+    shift.is_active = False
+
+    try:
+        db.session.commit()
+
+        return jsonify({
+            "message": "Weekly shift deactivated successfully.",
+            "schedule": serialize_weekly_shift(shift),
+        }), 200
+
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "error": "Unable to deactivate weekly shift."
         }), 500
