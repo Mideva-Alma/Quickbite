@@ -1,4 +1,3 @@
-cat > .gitignore <<'EOF'
 # Logs
 logs/
 *.log
@@ -44,4 +43,3 @@ backend/venv/
 backend/app/static/uploads/
 backend/backups/
 *.bak
-EOF

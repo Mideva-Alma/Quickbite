@@ -65,11 +65,7 @@ def serialize_order(order):
         items.append({
             "id": getattr(line, "id", None),
             "name": item_name or "Unknown item",
-            "quantity": get_value(
-                line,
-                "quantity",
-                default=1,
-            ),
+            "quantity": get_value(line, "quantity", default=1),
             "price": item_price if item_price is not None else 0,
         })
 
