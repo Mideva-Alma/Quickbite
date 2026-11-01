@@ -1,11 +1,13 @@
+
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy import or_
 
 from ..models.order import Order
 from ..utils.auth import staff_required
-from sqlalchemy import or_
+
 
 manager_bp = Blueprint(
     "manager",
@@ -15,13 +17,21 @@ manager_bp = Blueprint(
 
 ORDER_STATUSES = ["PENDING", "PREPARING", "READY", "SERVED"]
 
+PAID_STATUSES = {
+    "PAID",
+    "COMPLETED",
+    "SUCCESS",
+    "SUCCESSFUL",
+}
+
 
 def get_value(obj, *names, default=None):
-    """Read the first available attribute from an object."""
+    """Read the first available non-None attribute from an object."""
     for name in names:
         value = getattr(obj, name, None)
         if value is not None:
             return value
+
     return default
 
 
@@ -30,23 +40,51 @@ def serialize_order(order):
     items = []
 
     for line in (getattr(order, "items", None) or []):
+        menu_item = getattr(line, "menu_item", None)
+
+        item_name = get_value(
+            line,
+            "item_name",
+            "name",
+            default=None,
+        )
+
+        if not item_name and menu_item:
+            item_name = getattr(menu_item, "name", None)
+
+        item_price = get_value(
+            line,
+            "unit_price",
+            "price",
+            default=None,
+        )
+
+        if item_price is None and menu_item:
+            item_price = getattr(menu_item, "price", 0)
+
         items.append({
             "id": getattr(line, "id", None),
-            "name": get_value(
-                line, "item_name", "name", default="Unknown item"
+            "name": item_name or "Unknown item",
+            "quantity": get_value(
+                line,
+                "quantity",
+                default=1,
             ),
-            "quantity": get_value(line, "quantity", default=1),
-            "price": get_value(
-                line, "unit_price", "price", default=0
-            ),
+            "price": item_price if item_price is not None else 0,
         })
 
     created_at = get_value(order, "created_at")
 
+    if created_at and hasattr(created_at, "isoformat"):
+        created_at = created_at.isoformat()
+
     return {
         "id": order.id,
         "customer": get_value(
-            order, "customer_name", "customer", default=""
+            order,
+            "customer_name",
+            "customer",
+            default="",
         ),
         "customer_phone": get_value(
             order,
@@ -57,19 +95,22 @@ def serialize_order(order):
         ),
         "table_number": get_value(order, "table_number"),
         "total_amount": get_value(
-            order, "total_amount", "total", default=0
+            order,
+            "total_amount",
+            "total",
+            default=0,
         ),
         "payment_method": get_value(
-            order, "payment_method", default=""
+            order,
+            "payment_method",
+            default="",
         ),
         "payment_status": get_value(
-            order, "payment_status", default=""
+            order,
+            "payment_status",
+            default="",
         ),
-        "created_at": (
-            created_at.isoformat()
-            if created_at and hasattr(created_at, "isoformat")
-            else created_at
-        ),
+        "created_at": created_at,
         "status": str(
             get_value(
                 order,
@@ -82,8 +123,26 @@ def serialize_order(order):
     }
 
 
+def order_sort_key(order):
+    """Safely sort orders by creation time, newest first."""
+    created_at = get_value(order, "created_at")
+
+    if not isinstance(created_at, datetime):
+        return (0, 0)
+
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+
+    return (1, created_at.timestamp())
+
+
 def load_orders():
-    """Load confirmed orders, newest first."""
+    """
+    Load orders visible to managers.
+
+    Cash orders remain visible.
+    M-Pesa orders are visible only after successful payment.
+    """
     orders = Order.query.filter(
         or_(
             Order.payment_method != "M-Pesa",
@@ -93,11 +152,11 @@ def load_orders():
 
     return sorted(
         orders,
-        key=lambda order: (
-            get_value(order, "created_at") or datetime.min
-        ),
+        key=order_sort_key,
         reverse=True,
     )
+
+
 def parse_date(value):
     """Parse YYYY-MM-DD query parameters."""
     if not value:
@@ -112,21 +171,17 @@ def parse_date(value):
 
 
 def order_in_date_range(order, start_date=None, end_date=None):
+    """Check whether an order falls within the requested date range."""
     created_at = get_value(order, "created_at")
 
     if not created_at:
         return False
 
-    order_date = (
-        created_at.date()
-        if isinstance(created_at, datetime)
-        else created_at
-    )
-
-    if isinstance(order_date, datetime):
-        order_date = order_date.date()
-
-    if not isinstance(order_date, date):
+    if isinstance(created_at, datetime):
+        order_date = created_at.date()
+    elif isinstance(created_at, date):
+        order_date = created_at
+    else:
         return False
 
     if start_date and order_date < start_date:
@@ -139,6 +194,7 @@ def order_in_date_range(order, start_date=None, end_date=None):
 
 
 def order_amount(order):
+    """Safely convert an order total into a float."""
     try:
         return float(
             get_value(
@@ -155,22 +211,32 @@ def order_amount(order):
 def is_paid(order):
     """Only count confirmed payments as revenue."""
     status = str(
-        get_value(order, "payment_status", default="")
+        get_value(
+            order,
+            "payment_status",
+            default="",
+        )
     ).strip().upper()
 
-    # Missing payment status is not assumed to mean paid.
-    return status in {
-        "PAID",
-        "COMPLETED",
-        "SUCCESS",
-        "SUCCESSFUL",
-    }
+    return status in PAID_STATUSES
 
 
 def payment_type(order):
-    return str(
-        get_value(order, "payment_method", default="")
-    ).strip().upper().replace("-", "").replace("_", "")
+    """Normalize payment method names."""
+    return (
+        str(
+            get_value(
+                order,
+                "payment_method",
+                default="",
+            )
+        )
+        .strip()
+        .upper()
+        .replace("-", "")
+        .replace("_", "")
+        .replace(" ", "")
+    )
 
 
 def unique_customers(orders):
@@ -202,7 +268,6 @@ def unique_customers(orders):
         elif name:
             key = f"name:{name.casefold()}"
         else:
-            # Do not count unidentified walk-in orders as unique people.
             continue
 
         customers[key] = {
@@ -216,12 +281,15 @@ def unique_customers(orders):
 @manager_bp.get("/orders")
 @staff_required("manager")
 def get_manager_orders():
-    """Return orders in the format expected by managerApi.js."""
+    """Return manager-visible orders."""
     try:
         orders = load_orders()
+
         return jsonify([
-            serialize_order(order) for order in orders
+            serialize_order(order)
+            for order in orders
         ]), 200
+
     except Exception:
         return jsonify({
             "error": "Unable to retrieve orders."
@@ -247,19 +315,26 @@ def get_manager_dashboard():
 
         today_orders = [
             order for order in orders
-            if order_in_date_range(order, today, today)
+            if order_in_date_range(
+                order,
+                today,
+                today,
+            )
         ]
 
         monthly_paid = [
-            order for order in monthly_orders if is_paid(order)
+            order for order in monthly_orders
+            if is_paid(order)
         ]
 
         paid_today = [
-            order for order in today_orders if is_paid(order)
+            order for order in today_orders
+            if is_paid(order)
         ]
 
         status_counts = {
-            status: 0 for status in ORDER_STATUSES
+            status: 0
+            for status in ORDER_STATUSES
         }
 
         for order in orders:
@@ -286,7 +361,10 @@ def get_manager_dashboard():
             order_amount(order)
             for order in orders
             if is_paid(order)
-            and payment_type(order) in {"MPESA", "SAFARICOM"}
+            and payment_type(order) in {
+                "MPESA",
+                "SAFARICOM",
+            }
         )
 
         return jsonify({
@@ -294,7 +372,9 @@ def get_manager_dashboard():
                 "total_orders": len(orders),
                 "monthly_orders": len(monthly_orders),
                 "today_orders": len(today_orders),
-                "total_customers": len(unique_customers(orders)),
+                "total_customers": len(
+                    unique_customers(orders)
+                ),
                 "active_orders": sum(
                     1 for order in orders
                     if str(
@@ -349,10 +429,15 @@ def get_manager_dashboard():
 @manager_bp.get("/sales")
 @staff_required("manager")
 def get_manager_sales():
-    """Return sales totals grouped by date."""
+    """Return paid sales totals grouped by date."""
     try:
-        start_date = parse_date(request.args.get("start_date"))
-        end_date = parse_date(request.args.get("end_date"))
+        start_date = parse_date(
+            request.args.get("start_date")
+        )
+
+        end_date = parse_date(
+            request.args.get("end_date")
+        )
 
         if start_date and end_date and start_date > end_date:
             return jsonify({
@@ -377,16 +462,16 @@ def get_manager_sales():
 
             created_at = get_value(order, "created_at")
 
-            order_date = (
-                created_at.date()
-                if isinstance(created_at, datetime)
-                else created_at
-            )
+            if isinstance(created_at, datetime):
+                order_date = created_at.date()
+            elif isinstance(created_at, date):
+                order_date = created_at
+            else:
+                continue
 
-            if isinstance(order_date, date):
-                key = order_date.isoformat()
-                daily_sales[key] += order_amount(order)
-                daily_orders[key] += 1
+            key = order_date.isoformat()
+            daily_sales[key] += order_amount(order)
+            daily_orders[key] += 1
 
         sales = [
             {
@@ -399,13 +484,17 @@ def get_manager_sales():
 
         return jsonify({
             "total_sales": round(
-                sum(daily_sales.values()), 2
+                sum(daily_sales.values()),
+                2,
             ),
             "sales": sales,
         }), 200
 
     except ValueError as error:
-        return jsonify({"error": str(error)}), 400
+        return jsonify({
+            "error": str(error)
+        }), 400
+
     except Exception:
         return jsonify({
             "error": "Unable to retrieve sales."
@@ -415,7 +504,7 @@ def get_manager_sales():
 @manager_bp.get("/customers")
 @staff_required("manager")
 def get_manager_customers():
-    """Return unique identifiable customers derived from orders."""
+    """Return unique identifiable customers derived from visible orders."""
     try:
         customers = unique_customers(load_orders())
 
