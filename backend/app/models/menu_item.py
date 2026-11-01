@@ -17,3 +17,6 @@ class MenuItem(db.Model):
     availability = db.Column(
         db.Boolean, nullable=False, default=True
     )
+    is_food_of_day = db.Column(
+        db.Boolean, nullable=False, default=False
+    )

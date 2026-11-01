@@ -16,6 +16,7 @@ def serialize_item(item):
         "category": item.category,
         "ingredients": item.ingredients or [],
         "availability": item.availability,
+        "is_food_of_day": item.is_food_of_day,
     }
 
 
