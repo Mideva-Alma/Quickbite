@@ -256,3 +256,56 @@ export async function updateMenuItemImage(
     }),
   });
 }
+
+/**
+ * Get saved weekly waiter schedules.
+ */
+export async function getWeeklyShifts() {
+  const data = await staffRequest("/manager/weekly-shifts");
+
+  if (!data || !Array.isArray(data.schedules)) {
+    throw new Error("Invalid weekly schedules response.");
+  }
+
+  return data.schedules;
+}
+
+/**
+ * Save one or more weekly shifts for a waiter.
+ */
+export async function createWeeklyShifts(waiterId, shifts) {
+  if (!waiterId || !Array.isArray(shifts) || shifts.length === 0) {
+    throw new Error("Select a waiter and provide at least one shift.");
+  }
+
+  return staffRequest("/manager/weekly-shifts", {
+    method: "POST",
+    body: JSON.stringify({
+      waiter_id: Number(waiterId),
+      shifts: shifts.map((shift) => ({
+        day_of_week: Number(shift.day_of_week),
+        start_time: shift.start_time,
+        end_time: shift.end_time,
+      })),
+    }),
+  });
+}
+
+/**
+ * Update an existing weekly shift.
+ */
+export async function updateWeeklyShift(shiftId, updates) {
+  return staffRequest(`/manager/weekly-shifts/${shiftId}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+}
+
+/**
+ * Deactivate a weekly shift.
+ */
+export async function deleteWeeklyShift(shiftId) {
+  return staffRequest(`/manager/weekly-shifts/${shiftId}`, {
+    method: "DELETE",
+  });
+}

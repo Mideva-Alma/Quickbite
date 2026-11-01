@@ -14,11 +14,13 @@ import {
   getManagerOrders,
   getManagerDashboard,
   getMenuItems,
+  getWeeklyShifts,
+  createWeeklyShifts,
+  deleteWeeklyShift,
   updateMenuItemAvailability,
   updateMenuItemImage,
   uploadMenuItemImage,
 } from "../services/managerApi";
-
 import {
   clearStaffSession,
   getStaffUser,
@@ -142,21 +144,23 @@ function ManagerDashboard() {
   const [waiterFormSuccess, setWaiterFormSuccess] = useState("");
   const [waiterFormLoading, setWaiterFormLoading] = useState(false);
   const [deletingWaiterId, setDeletingWaiterId] = useState(null);
+  // Weekly waiter scheduling state.
+const [shiftDraft, setShiftDraft] = useState({
+  waiterId: "",
+  dayOfWeek: "0",
+  startTime: "07:00",
+  endTime: "18:00",
+});
 
-  // Shift preview state. This is not persisted to the backend.
-  const [shiftDraft, setShiftDraft] = useState({
-    waiterId: "",
-    date: new Date().toISOString().slice(0, 10),
-    startTime: "07:00",
-    endTime: "18:00",
-  });
+const [plannedShifts, setPlannedShifts] = useState([]);
+const [shiftMessage, setShiftMessage] = useState("");
+const [shiftLoading, setShiftLoading] = useState(false);
+const [shiftSaving, setShiftSaving] = useState(false);
+const [deletingShiftId, setDeletingShiftId] = useState(null);
 
-  const [plannedShifts, setPlannedShifts] = useState([]);
-  const [shiftMessage, setShiftMessage] = useState("");
-
-  const savingStockIdRef = useRef(null);
-  const ordersRequestInProgress = useRef(false);
-  const stockRequestInProgress = useRef(false);
+const savingStockIdRef = useRef(null);
+const ordersRequestInProgress = useRef(false);
+const stockRequestInProgress = useRef(false);
 
   const handleLogout = async () => {
     try {
@@ -461,6 +465,26 @@ function ManagerDashboard() {
       setWaiterFormError(err.message || "Unable to load the waiter roster.");
     }
   }, []);
+  const loadWeeklyShifts = useCallback(async () => {
+  setShiftLoading(true);
+
+  try {
+    const data = await getWeeklyShifts();
+
+    setPlannedShifts(
+      data.filter((shift) => shift.is_active)
+    );
+
+    setShiftMessage("");
+  } catch (err) {
+    console.error("Weekly schedules loading error:", err);
+    setShiftMessage(
+      err.message || "Unable to load saved weekly schedules."
+    );
+  } finally {
+    setShiftLoading(false);
+  }
+}, []);
 
   const handleAddWaiter = async (event) => {
     event.preventDefault();
@@ -530,52 +554,68 @@ function ManagerDashboard() {
       setDeletingWaiterId(null);
     }
   };
+const handleAddShift = async (event) => {
+  event.preventDefault();
+  setShiftMessage("");
 
-  const handleAddShift = (event) => {
-    event.preventDefault();
-    setShiftMessage("");
+  if (!shiftDraft.waiterId) {
+    setShiftMessage("Please select a waiter.");
+    return;
+  }
 
-    if (!shiftDraft.waiterId) {
-      setShiftMessage("Please select a waiter.");
-      return;
-    }
+  if (shiftDraft.endTime <= shiftDraft.startTime) {
+    setShiftMessage("The shift end time must be later than the start time.");
+    return;
+  }
 
-    if (shiftDraft.endTime <= shiftDraft.startTime) {
-      setShiftMessage("The shift end time must be later than the start time.");
-      return;
-    }
+  setShiftSaving(true);
 
-    const selectedWaiter = waiters.find(
-      (waiter) => String(waiter.id) === String(shiftDraft.waiterId)
-    );
+  try {
+    await createWeeklyShifts(shiftDraft.waiterId, [
+      {
+        day_of_week: Number(shiftDraft.dayOfWeek),
+        start_time: shiftDraft.startTime,
+        end_time: shiftDraft.endTime,
+      },
+    ]);
 
-    if (!selectedWaiter) {
-      setShiftMessage("The selected waiter could not be found.");
-      return;
-    }
+    await loadWeeklyShifts();
 
-    const newShift = {
-      id: `${Date.now()}`,
-      waiterId: selectedWaiter.id,
-      waiterName: selectedWaiter.full_name,
-      date: shiftDraft.date,
-      startTime: shiftDraft.startTime,
-      endTime: shiftDraft.endTime,
-    };
+    setShiftMessage("Weekly shift saved successfully.");
+  } catch (err) {
+    console.error("Weekly shift creation error:", err);
+    setShiftMessage(err.message || "Unable to save the weekly shift.");
+  } finally {
+    setShiftSaving(false);
+  }
+};
 
-    setPlannedShifts((previous) => [...previous, newShift]);
-    setShiftMessage("Shift added to this preview.");
-  };
+const handleRemoveShift = async (shiftId) => {
+  setDeletingShiftId(shiftId);
+  setShiftMessage("");
 
-  const handleRemoveShift = (shiftId) => {
+  try {
+    await deleteWeeklyShift(shiftId);
+
     setPlannedShifts((previous) =>
       previous.filter((shift) => shift.id !== shiftId)
     );
-  };
 
+    setShiftMessage("Weekly shift deactivated successfully.");
+  } catch (err) {
+    console.error("Weekly shift removal error:", err);
+    setShiftMessage(err.message || "Unable to remove the weekly shift.");
+  } finally {
+    setDeletingShiftId(null);
+  }
+};
   useEffect(() => {
     loadWaiters();
   }, [loadWaiters]);
+
+  useEffect(() => {
+  loadWeeklyShifts();
+}, [loadWeeklyShifts]);
 
   useEffect(() => {
     loadOrders();
@@ -1141,12 +1181,8 @@ function ManagerDashboard() {
                     Waiter Shift Scheduling
                   </h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    Create a preview of the shifts assigned to your waiters.
+                    Assign recurring weekly shifts to your waiters.
                   </p>
-                </div>
-
-                <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                  This is a preview only. Shift schedules are not yet saved to the database and will disappear when you reload the page.
                 </div>
 
                 {shiftMessage && (
@@ -1180,22 +1216,29 @@ function ManagerDashboard() {
                       ))}
                     </select>
                   </label>
-
-                  <label className="text-sm font-medium text-slate-700">
-                    Date
-                    <input
-                      type="date"
-                      value={shiftDraft.date}
-                      onChange={(event) =>
-                        setShiftDraft((previous) => ({
-                          ...previous,
-                          date: event.target.value,
-                        }))
-                      }
-                      required
-                      className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3"
-                    />
-                  </label>
+                   <label className="text-sm font-medium text-slate-700">
+  Day of week
+  <select
+    value={shiftDraft.dayOfWeek}
+    onChange={(event) =>
+      setShiftDraft((previous) => ({
+        ...previous,
+        dayOfWeek: event.target.value,
+      }))
+    }
+    required
+    className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-3"
+  >
+    <option value="0">Monday</option>
+    <option value="1">Tuesday</option>
+    <option value="2">Wednesday</option>
+    <option value="3">Thursday</option>
+    <option value="4">Friday</option>
+    <option value="5">Saturday</option>
+    <option value="6">Sunday</option>
+  </select>
+</label>
+                
 
                   <label className="text-sm font-medium text-slate-700">
                     Start time
@@ -1232,10 +1275,10 @@ function ManagerDashboard() {
                   <div className="flex items-end">
                     <button
                       type="submit"
-                      disabled={waiters.length === 0}
+                      disabled={waiters.length === 0 || shiftSaving}
                       className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Add Shift
+                      {shiftSaving ? "Saving..." : "Save Weekly Shift"}
                     </button>
                   </div>
                 </form>
@@ -1247,7 +1290,7 @@ function ManagerDashboard() {
 
                   {plannedShifts.length === 0 ? (
                     <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
-                      No shifts added to this preview yet.
+                      No weekly shifts have been assigned yet.
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -1255,7 +1298,7 @@ function ManagerDashboard() {
                         <thead>
                           <tr className="border-b border-slate-200 text-xs uppercase text-slate-500">
                             <th className="px-3 py-3">Waiter</th>
-                            <th className="px-3 py-3">Date</th>
+                            <th className="px-3 py-3">Day</th>
                             <th className="px-3 py-3">Start</th>
                             <th className="px-3 py-3">End</th>
                             <th className="px-3 py-3">Action</th>
@@ -1269,24 +1312,25 @@ function ManagerDashboard() {
                               className="border-b border-slate-100"
                             >
                               <td className="px-3 py-4 font-medium text-slate-800">
-                                {shift.waiterName}
+                                {shift.waiter_name}
                               </td>
                               <td className="px-3 py-4 text-slate-600">
-                                {shift.date}
+                                {shift.day_name}
                               </td>
                               <td className="px-3 py-4 text-slate-600">
-                                {shift.startTime}
+                                {shift.start_time}
                               </td>
                               <td className="px-3 py-4 text-slate-600">
-                                {shift.endTime}
+                                {shift.end_time}
                               </td>
                               <td className="px-3 py-4">
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveShift(shift.id)}
+                                    disabled={deletingShiftId === shift.id}
                                   className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
                                 >
-                                  Remove
+                                  {deletingShiftId === shift.id ? "Removing..." : "Remove"}
                                 </button>
                               </td>
                             </tr>
