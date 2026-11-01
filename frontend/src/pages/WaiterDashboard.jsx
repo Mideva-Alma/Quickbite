@@ -454,7 +454,7 @@ function WaiterDashboard() {
                   No active waiter profiles found.
                 </p>
               ) : (
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-col items-start gap-2">
                   {waiters.map((waiter, index) => (
                     <button
                       key={waiter.id}
