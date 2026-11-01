@@ -455,7 +455,7 @@ function WaiterDashboard() {
                 </p>
               ) : (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {waiters.map((waiter) => (
+                  {waiters.map((waiter, index) => (
                     <button
                       key={waiter.id}
                       type="button"
@@ -466,7 +466,7 @@ function WaiterDashboard() {
                           : "bg-blue-50 text-blue-800 hover:bg-blue-100"
                       }`}
                     >
-                      {waiter.full_name}
+                      {index + 1}. {waiter.full_name}
                     </button>
                   ))}
                 </div>
@@ -568,14 +568,14 @@ function WaiterDashboard() {
                 </p>
               ) : (
                 <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {availableWaiters.map((waiter) => (
+                  {availableWaiters.map((waiter, index) => (
                     <div
                       key={waiter.id}
                       className="rounded-lg border border-green-200 bg-green-50 p-4"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <h3 className="font-semibold text-gray-800">
-                          {waiter.full_name}
+                          {index + 1}. {waiter.full_name}
                         </h3>
 
                         <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
