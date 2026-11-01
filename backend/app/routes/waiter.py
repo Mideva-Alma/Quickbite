@@ -1,181 +1,207 @@
 from flask import Blueprint, jsonify, request
+
 from ..extensions import db
-from datetime import datetime
-from ..models.shift import Shift
+from ..models.order import Order
+from ..models.waiter_profile import WaiterProfile
+from ..utils.auth import staff_required
+from sqlalchemy import or_
 
-waiter_bp = Blueprint("waiter", __name__, url_prefix="/api/waiter")
+waiter_bp = Blueprint(
+    "waiter",
+    __name__,
+    url_prefix="/api/waiter",
+)
 
-# The four stages an order moves through, in order
-ORDER_STATUSES = ["PENDING", "PREPARING", "READY", "SERVED"]
-
-
-def get_order_model():
-    # Imported here so this file still loads while order.py is empty
-    from ..models.order import Order
-    return Order
+ORDER_STATUSES = ["Pending", "Preparing", "Ready", "Served"]
 
 
 def serialize_order(order):
-    items = []
-    for line in getattr(order, "items", None) or []:
-        menu_item = getattr(line, "menu_item", None)
-        price = getattr(line, "price", None)
-        if price is None and menu_item:
-            price = menu_item.price
-        items.append({
-            "id": getattr(line, "id", None),
-            "name": menu_item.name if menu_item else getattr(line, "name", None),
-            "quantity": getattr(line, "quantity", 1),
-            "price": price,
-        })
-
-    created_at = getattr(order, "created_at", None)
+    assigned_waiter = order.assigned_waiter
 
     return {
         "id": order.id,
-        "customer": getattr(order, "customer_name", None),
-        "table_number": getattr(order, "table_number", None),
-        "total_amount": getattr(order, "total_amount", None),
-        "payment_method": getattr(order, "payment_method", None),
-        "payment_status": getattr(order, "payment_status", None),
-        "created_at": created_at.isoformat() if created_at else None,
-        "status": order.status,
-        "items": items,
+        "customer": order.customer_name,
+        "phone": order.phone,
+        "table_number": order.table_number,
+        "total_amount": float(order.total),
+        "payment_method": order.payment_method,
+        "payment_status": order.payment_status,
+        "status": order.order_status,
+        "created_at": (
+            order.created_at.isoformat()
+            if order.created_at
+            else None
+        ),
+        "items": [
+            {
+                "id": item.menu_item_id,
+                "name": item.item_name,
+                "quantity": item.quantity,
+                "price": float(item.unit_price),
+            }
+            for item in order.items
+        ],
+        "assigned_waiter_id": order.assigned_waiter_id,
+        "assigned_waiter_name": (
+            assigned_waiter.full_name
+            if assigned_waiter
+            else None
+        ),
+        "served_by_name": order.served_by_name,
+        "mpesa_receipt_number": order.mpesa_receipt_number,
     }
 
 
 @waiter_bp.route("/orders", methods=["GET"])
+@staff_required("waiter")
 def get_orders():
-    Order = get_order_model()
-    query = Order.query
+    query = Order.query.filter(
+        or_(
+            Order.payment_method != "M-Pesa",
+            Order.payment_status == "Paid"
+        )
+    )
 
     status = request.args.get("status")
+
     if status:
-        status = status.upper()
-        if status not in ORDER_STATUSES:
+        normalized_status = next(
+            (
+                allowed
+                for allowed in ORDER_STATUSES
+                if allowed.lower() == status.strip().lower()
+            ),
+            None,
+        )
+
+        if normalized_status is None:
             return jsonify({"error": "Invalid status"}), 400
-        query = query.filter_by(status=status)
 
-    orders = query.order_by(Order.id).all()
-    return jsonify([serialize_order(order) for order in orders]), 200
+        query = query.filter_by(order_status=normalized_status)
+
+    orders = query.order_by(Order.id.desc()).all()
+
+    return jsonify([
+        serialize_order(order) for order in orders
+    ]), 200
 
 
-@waiter_bp.route("/orders/<int:order_id>/status", methods=["PATCH"])
-def update_order_status(order_id):
-    Order = get_order_model()
-    order = db.get_or_404(Order, order_id)
-    data = request.get_json(silent=True) or {}
+@waiter_bp.route(
+    "/orders/<int:order_id>/assignment",
+    methods=["PATCH"],
+)
+@staff_required("waiter")
+def assign_order_waiter(order_id):
+    """Assign or unassign an active waiter before service is completed."""
+    order = db.session.get(Order, order_id)
 
-    new_status = str(data.get("status", "")).upper()
-    if new_status not in ORDER_STATUSES:
-        return jsonify({"error": "Invalid status"}), 400
+    if order is None:
+        return jsonify({"error": "Order not found"}), 404
 
-    if order.status not in ORDER_STATUSES:
-        return jsonify({"error": "Order has an unknown status"}), 400
+    if order.order_status == "Served":
+        return jsonify({
+            "error": "A served order cannot be reassigned."
+        }), 400
 
-    # An order can only move one stage forward at a time
-    current = ORDER_STATUSES.index(order.status)
-    if ORDER_STATUSES.index(new_status) != current + 1:
-        return jsonify({"error": "Status must move to the next stage"}), 400
+    data = request.get_json(silent=True)
 
-    order.status = new_status
-    db.session.commit()
+    if not isinstance(data, dict) or "waiter_id" not in data:
+        return jsonify({"error": "A waiter ID is required"}), 400
+
+    waiter_id = data["waiter_id"]
+
+    if waiter_id is None:
+        order.assigned_waiter = None
+        order.served_by_name = None
+    else:
+        if (
+            isinstance(waiter_id, bool)
+            or not isinstance(waiter_id, int)
+            or waiter_id < 1
+        ):
+            return jsonify({"error": "Invalid waiter ID"}), 400
+
+        waiter = db.session.get(WaiterProfile, waiter_id)
+
+        if waiter is None or not waiter.is_active:
+            return jsonify({
+                "error": "The selected waiter is not active."
+            }), 400
+
+        order.assigned_waiter = waiter
+        order.served_by_name = None
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "error": "Could not assign waiter to order"
+        }), 500
+
     return jsonify(serialize_order(order)), 200
 
-def serialize_shift(shift):
-    return {
-        "id": shift.id,
-        "waiter_id": shift.waiter_id,
-        "started_at": shift.started_at.isoformat(),
-        "ended_at": shift.ended_at.isoformat() if shift.ended_at else None,
-        "is_active": shift.is_active,
-        "hours_worked": shift.hours_worked,
-    }
 
+@waiter_bp.route(
+    "/orders/<int:order_id>/status",
+    methods=["PATCH"],
+)
+@staff_required("waiter")
+def update_order_status(order_id):
+    order = db.session.get(Order, order_id)
 
-@waiter_bp.route("/shifts/start", methods=["POST"])
-def start_shift():
+    if order is None:
+        return jsonify({"error": "Order not found"}), 404
+
     data = request.get_json(silent=True) or {}
-    # TODO: once login is merged, take the waiter id from the JWT instead
-    waiter_id = data.get("waiter_id")
-    if not isinstance(waiter_id, int):
-        return jsonify({"error": "waiter_id is required"}), 400
+    requested_status = data.get("status")
 
-    active = Shift.query.filter_by(waiter_id=waiter_id, ended_at=None).first()
-    if active:
-        return jsonify({"error": "Shift already started"}), 400
+    if not isinstance(requested_status, str):
+        return jsonify({"error": "A valid status is required"}), 400
 
-    shift = Shift(waiter_id=waiter_id)
-    db.session.add(shift)
-    db.session.commit()
-    return jsonify(serialize_shift(shift)), 201
-
-
-@waiter_bp.route("/shifts/end", methods=["POST"])
-def end_shift():
-    data = request.get_json(silent=True) or {}
-    # TODO: once login is merged, take the waiter id from the JWT instead
-    waiter_id = data.get("waiter_id")
-    if not isinstance(waiter_id, int):
-        return jsonify({"error": "waiter_id is required"}), 400
-
-    shift = Shift.query.filter_by(waiter_id=waiter_id, ended_at=None).first()
-    if not shift:
-        return jsonify({"error": "No active shift to end"}), 400
-
-    shift.ended_at = datetime.utcnow()
-    db.session.commit()
-    return jsonify(serialize_shift(shift)), 200
-
-
-def waiter_orders(waiter_id):
-    # Returns [] until the Order model exists and has a waiter_id column
-    try:
-        Order = get_order_model()
-    except ImportError:
-        return []
-    if not hasattr(Order, "waiter_id"):
-        return []
-    return Order.query.filter_by(waiter_id=waiter_id).all()
-
-
-def table_summary(waiter_id):
-    orders = waiter_orders(waiter_id)
-    served = {o.table_number for o in orders if o.status == "SERVED"}
-    open_tables = {o.table_number for o in orders if o.status != "SERVED"}
-    return sorted(served), sorted(open_tables)
-
-
-@waiter_bp.route("/<int:waiter_id>/record", methods=["GET"])
-def waiter_record(waiter_id):
-    shifts = (
-        Shift.query.filter_by(waiter_id=waiter_id)
-        .order_by(Shift.started_at.desc())
-        .all()
+    new_status = next(
+        (
+            allowed
+            for allowed in ORDER_STATUSES
+            if allowed.lower() == requested_status.strip().lower()
+        ),
+        None,
     )
-    served, open_tables = table_summary(waiter_id)
-    return jsonify({
-        "waiter_id": waiter_id,
-        "total_hours": round(sum(s.hours_worked for s in shifts), 2),
-        "tables_served": len(served),
-        "served_tables": served,
-        "open_tables": open_tables,
-        "shifts": [serialize_shift(s) for s in shifts],
-    }), 200
 
+    if new_status is None:
+        return jsonify({"error": "Invalid status"}), 400
 
-@waiter_bp.route("/roster", methods=["GET"])
-def roster():
-    active = Shift.query.filter_by(ended_at=None).order_by(Shift.started_at).all()
-    result = []
-    for shift in active:
-        served, open_tables = table_summary(shift.waiter_id)
-        result.append({
-            "waiter_id": shift.waiter_id,
-            "on_shift_since": shift.started_at.isoformat(),
-            "hours_so_far": shift.hours_worked,
-            "current_tables": open_tables,
-            "tables_served": len(served),
-            "status": "BUSY" if open_tables else "AVAILABLE",
-        })
-    return jsonify(result), 200
+    if order.order_status not in ORDER_STATUSES:
+        return jsonify({"error": "Order has an unknown status"}), 400
+
+    current_index = ORDER_STATUSES.index(order.order_status)
+    new_index = ORDER_STATUSES.index(new_status)
+
+    if new_index != current_index + 1:
+        return jsonify({
+            "error": "Status must move to the next stage"
+        }), 400
+
+    # A waiter must be assigned before an order can be marked Served.
+    if new_status == "Served":
+        waiter = order.assigned_waiter
+
+        if waiter is None or not waiter.is_active:
+            return jsonify({
+                "error": "Assign an active waiter before serving this order."
+            }), 400
+
+        # Save a permanent name snapshot for the receipt.
+        order.served_by_name = waiter.full_name
+
+    order.order_status = new_status
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "error": "Could not update order status"
+        }), 500
+
+    return jsonify(serialize_order(order)), 200
