@@ -11,6 +11,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   createMenuItem,
   getManagerOrders,
+  getManagerDashboard,
   getMenuItems,
   updateMenuItemAvailability,
   updateMenuItemImage,
@@ -96,6 +97,8 @@ function ManagerDashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [dashboardStatsError, setDashboardStatsError] = useState("");
 
   // Meal availability.
   const [stockItems, setStockItems] = useState([]);
@@ -154,6 +157,24 @@ function ManagerDashboard() {
     } finally {
       setLoading(false);
       ordersRequestInProgress.current = false;
+    }
+  }, []);
+
+  // Load summary statistics from the backend.
+  const loadDashboardStats = useCallback(async () => {
+    try {
+      const data = await getManagerDashboard();
+      const stats = data?.stats ?? null;
+
+      setDashboardStats(stats);
+      setDashboardStatsError(
+        stats ? "" : "Dashboard statistics were not returned by the server."
+      );
+    } catch (err) {
+      console.error("Dashboard statistics error:", err);
+      setDashboardStatsError(
+        err.message || "Unable to load the latest dashboard statistics."
+      );
     }
   }, []);
 
@@ -548,14 +569,21 @@ const handleDeleteWaiter = async (waiter) => {
     return () => clearInterval(interval);
   }, [loadStock]);
 
+  // Refresh backend dashboard statistics periodically.
+  useEffect(() => {
+    loadDashboardStats();
+
+    const interval = setInterval(loadDashboardStats, REFRESH_MS);
+
+    return () => clearInterval(interval);
+  }, [loadDashboardStats]);
+
   // Calculate statistics for the current month.
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
 
   const {
-    monthlyOrders,
-    totalRevenue,
     mostLikedMeal,
     topMeals,
     statusCounts,
@@ -572,11 +600,6 @@ const handleDeleteWaiter = async (waiter) => {
         date.getFullYear() === currentYear
       );
     });
-
-    const revenue = monthly.reduce(
-      (total, order) => total + (Number(order.total) || 0),
-      0
-    );
 
     const mealCounts = {};
 
@@ -618,8 +641,6 @@ const handleDeleteWaiter = async (waiter) => {
       .slice(0, 5);
 
     return {
-      monthlyOrders: monthly,
-      totalRevenue: revenue,
       mostLikedMeal: sortedMeals[0] ?? null,
       topMeals: sortedMeals.slice(0, 5),
       statusCounts: counts,
@@ -693,6 +714,7 @@ const handleDeleteWaiter = async (waiter) => {
               onClick={() => {
                 loadOrders();
                 loadStock();
+                loadDashboardStats();
               }}
               disabled={loading || stockLoading}
               className="rounded-lg bg-red-600 px-5 py-2.5 font-medium text-white hover:bg-red-700 disabled:opacity-60"
@@ -880,6 +902,7 @@ const handleDeleteWaiter = async (waiter) => {
               <label className="block text-sm font-medium text-gray-700">
                 Upload food photo
                 <input
+                  id="food-image-input"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   onChange={handleFoodImageChange}
@@ -1081,38 +1104,62 @@ const handleDeleteWaiter = async (waiter) => {
           </div>
         )}
 
-        {/* Statistics */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Dashboard Statistics */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
             title="Total Orders"
-            value={orders.length.toLocaleString()}
-            description="All orders received"
+            value={dashboardStats?.total_orders?.toLocaleString() ?? orders.length.toLocaleString()}
+            description="All orders returned by the backend"
+          />
+
+          <StatCard
+            title="Today's Orders"
+            value={dashboardStats?.today_orders?.toLocaleString() ?? "—"}
+            description="Orders placed today"
+          />
+
+          <StatCard
+            title="Active Orders"
+            value={dashboardStats?.active_orders?.toLocaleString() ?? "—"}
+            description="Pending, preparing, or ready"
           />
 
           <StatCard
             title="Monthly Orders"
-            value={monthlyOrders.length.toLocaleString()}
-            description="Orders this month"
+            value={dashboardStats?.monthly_orders?.toLocaleString() ?? "—"}
+            description="Orders placed this month"
           />
 
           <StatCard
             title="Monthly Revenue"
-            value={`KSh ${totalRevenue.toLocaleString("en-KE", {
-              maximumFractionDigits: 2,
-            })}`}
-            description="Total order value this month"
+            value={dashboardStats ? `KSh ${Number(dashboardStats.monthly_revenue ?? 0).toLocaleString("en-KE", { maximumFractionDigits: 2 })}` : "—"}
+            description="Confirmed payments this month"
+          />
+
+          <StatCard
+            title="Today's Revenue"
+            value={dashboardStats ? `KSh ${Number(dashboardStats.today_revenue ?? 0).toLocaleString("en-KE", { maximumFractionDigits: 2 })}` : "—"}
+            description="Confirmed payments today"
+          />
+
+          <StatCard
+            title="Total Meals"
+            value={stockItems.length.toLocaleString()}
+            description="Menu items currently listed"
           />
 
           <StatCard
             title="Most Popular Meal"
             value={mostLikedMeal ? mostLikedMeal[0] : "—"}
-            description={
-              mostLikedMeal
-                ? `${mostLikedMeal[1]} portions ordered this month`
-                : "No orders this month"
-            }
+            description={mostLikedMeal ? `${mostLikedMeal[1]} portions ordered this month` : "No orders this month"}
           />
         </div>
+
+        {dashboardStatsError && (
+          <p role="alert" className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+            {dashboardStatsError}
+          </p>
+        )}
 
         {/* Order Status and Top Meals */}
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
