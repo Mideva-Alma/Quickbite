@@ -73,8 +73,12 @@ function Navbar() {
          <span>🛒 Cart</span>
 
          {cartItemCount > 0 && (
-           <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-bold text-white">
-            {cartItemCount}
+           <span
+             key={cartItemCount}
+             className="absolute -right-2 -top-2 flex h-7 min-w-7 animate-bounce items-center justify-center rounded-full bg-yellow-400 px-2 text-sm font-extrabold text-red-700 shadow-lg ring-2 ring-white"
+             aria-label={`${cartItemCount} items in cart`}
+           >
+             {cartItemCount}
            </span>
          )}
         </Link>
